@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master RPS AI - Ultimate Edition | Doulet Media</title>
+    <title>Neural RPS Master | Doulet Media</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -14,121 +14,75 @@
             background-color: #f5f7fa;
             color: #2c3e50;
         }
-        h1 {
-            color: #3498db;
-            margin-bottom: 5px;
-        }
-        .subtitle {
-            color: #7f8c8d;
-            margin-bottom: 30px;
-        }
         .choices {
             display: flex;
             justify-content: center;
-            gap: 20px;
-            margin: 40px 0;
+            gap: 15px;
+            margin: 30px 0;
             flex-wrap: wrap;
         }
         .choice {
-            font-size: 70px;
+            font-size: 60px;
             cursor: pointer;
-            padding: 15px;
-            border-radius: 15px;
-            transition: all 0.3s;
+            padding: 10px;
+            border-radius: 10px;
+            transition: all 0.2s;
             background-color: white;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            width: 120px;
-            height: 120px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+            width: 100px;
+            height: 100px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
         .choice:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
         }
         #result {
-            font-size: 26px;
-            margin: 30px 0;
-            min-height: 120px;
-            padding: 20px;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .stats-container {
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin: 30px 0;
-        }
-        .stat-box {
-            background-color: white;
+            font-size: 22px;
+            margin: 20px 0;
+            min-height: 80px;
             padding: 15px;
-            border-radius: 10px;
+            background-color: white;
+            border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            min-width: 150px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .stat {
+            background-color: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .analysis {
-            margin-top: 40px;
-            padding: 20px;
+            margin-top: 30px;
+            padding: 15px;
             background-color: #2c3e50;
             color: white;
-            border-radius: 10px;
+            border-radius: 8px;
             text-align: left;
         }
-        .strategy-tag {
-            display: inline-block;
-            padding: 3px 8px;
-            background-color: #e74c3c;
-            color: white;
-            border-radius: 4px;
-            font-size: 12px;
-            margin-right: 5px;
-            margin-bottom: 5px;
-        }
-        #confidence-meter {
-            height: 10px;
-            background-color: #ecf0f1;
-            border-radius: 5px;
-            margin-top: 10px;
-            overflow: hidden;
-        }
-        #confidence-level {
-            height: 100%;
-            background-color: #2ecc71;
-            width: 0%;
-            transition: width 0.5s;
-        }
-        .advanced-stats {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #34495e;
-            color: white;
-            border-radius: 10px;
-        }
-        .pattern-vis {
+        .pattern-display {
             font-family: monospace;
-            font-size: 18px;
-            letter-spacing: 3px;
+            font-size: 16px;
+            margin-top: 10px;
         }
         .footer {
-            margin-top: 30px;
+            margin-top: 20px;
             color: #7f8c8d;
-            font-size: 14px;
-        }
-        .ai-level {
-            margin-top: 10px;
-            font-weight: bold;
-            color: #3498db;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
-    <h1>Master RPS AI - Ultimate Edition</h1>
-    <p class="subtitle">Developed by Doulet Media | The pinnacle of pattern recognition</p>
-    <div class="ai-level" id="ai-level">AI Level: Observing</div>
+    <h1>Neural RPS Master</h1>
+    <p>The ultimate pattern-recognition AI</p>
     
     <div class="choices">
         <div class="choice" data-choice="rock">✊</div>
@@ -138,732 +92,205 @@
     
     <div id="result">Make your move!</div>
     
-    <div class="stats-container">
-        <div class="stat-box">
-            <h3>Games Played</h3>
-            <p id="games-played">0</p>
+    <div class="stats">
+        <div class="stat">
+            <h3>Games</h3>
+            <p id="games">0</p>
         </div>
-        <div class="stat-box">
-            <h3>Your Wins</h3>
-            <p id="user-wins">0</p>
+        <div class="stat">
+            <h3>You</h3>
+            <p id="wins">0</p>
         </div>
-        <div class="stat-box">
-            <h3>AI Wins</h3>
-            <p id="bot-wins">0</p>
+        <div class="stat">
+            <h3>AI</h3>
+            <p id="losses">0</p>
         </div>
-        <div class="stat-box">
-            <h3>Win Rate</h3>
-            <p id="win-rate">0%</p>
+        <div class="stat">
+            <h3>Rate</h3>
+            <p id="rate">0%</p>
         </div>
     </div>
     
     <div class="analysis">
-        <h2>AI Analysis</h2>
-        <div id="pattern-info">Collecting initial data...</div>
-        <div id="confidence">
-            <div>Prediction Confidence: <span id="confidence-value">0</span>%</div>
-            <div id="confidence-meter">
-                <div id="confidence-level"></div>
-            </div>
-        </div>
-        <div id="strategy-tags"></div>
-    </div>
-    
-    <div class="advanced-stats">
-        <h3>Advanced Statistics</h3>
-        <div id="repetition-score">Repetition detection: 0%</div>
-        <div id="randomness-score">Randomness level: 0%</div>
-        <div id="pattern-cycle">Pattern cycle: None detected</div>
-        <div class="pattern-vis" id="pattern-vis"></div>
-        <div id="player-type">Player type: Unknown</div>
+        <h3>AI Analysis</h3>
+        <div id="analysis">Initializing pattern recognition...</div>
+        <div class="pattern-display" id="pattern"></div>
     </div>
     
     <div class="footer">
-        <p>© 2024 Doulet Media | This AI wins through pure pattern recognition - no cheating!</p>
+        <p>© 2024 Doulet Media | CPU-friendly AI engine</p>
     </div>
-    
+
     <script>
-        // Enhanced game state with ultimate tracking
+        // Optimized game state
         const state = {
-            gamesPlayed: 0,
-            userWins: 0,
-            botWins: 0,
-            ties: 0,
             history: [],
-            moveCounts: { rock: 0, paper: 0, scissors: 0 },
-            
-            // Multi-order Markov chains
+            counts: {rock: 0, paper: 0, scissors: 0},
+            streaks: {rock: 0, paper: 0, scissors: 0},
+            lastMove: null,
             transitions: {
-                order1: {
-                    rock: { rock: 0, paper: 0, scissors: 0 },
-                    paper: { rock: 0, paper: 0, scissors: 0 },
-                    scissors: { rock: 0, paper: 0, scissors: 0 }
-                },
-                order2: {},
-                order3: {}
+                rock: {rock: 0, paper: 0, scissors: 0},
+                paper: {rock: 0, paper: 0, scissors: 0},
+                scissors: {rock: 0, paper: 0, scissors: 0}
             },
-            
-            // Repetition tracking
-            repetitionCounters: { rock: 0, paper: 0, scissors: 0 },
-            lastTenMoves: [],
-            consecutiveRepeats: 0,
-            
-            // Player typing
-            playerType: null,
-            detectedStrategies: new Set(),
-            strategyHistory: [],
-            
-            // Randomness analysis
-            randomnessScore: 0,
-            recentRandomness: [],
-            
-            // Anti-pattern measures
-            antiPatternMode: false,
-            lastBotMove: null,
-            streak: 0,
-            lastStreakMove: null,
-            
-            // Confidence tracking
-            confidence: 0,
-            
-            // AI level tracking
-            aiLevel: "Observing",
-            predictionDepth: 1
+            games: 0,
+            wins: 0,
+            losses: 0
         };
 
-        // Initialize all transitions
-        const moves = ['rock', 'paper', 'scissors'];
-        moves.forEach(move1 => {
-            moves.forEach(move2 => {
-                state.transitions.order2[`${move1}-${move2}`] = { rock: 0, paper: 0, scissors: 0 };
-                moves.forEach(move3 => {
-                    state.transitions.order3[`${move1}-${move2}-${move3}`] = { rock: 0, paper: 0, scissors: 0 };
-                });
-            });
-        });
-
-        // Move relationships
+        // Lightweight move relationships
         const beats = {
             rock: 'scissors',
             paper: 'rock',
             scissors: 'paper'
         };
         
-        const moveToEmoji = {
+        const emoji = {
             rock: '✊',
             paper: '✋',
             scissors: '✌️'
         };
         
-        const moveNames = {
-            rock: 'Rock',
-            paper: 'Paper',
-            scissors: 'Scissors'
-        };
-        
-        // Known player strategies
-        const STRATEGIES = {
-            WIN_STAY: 'win-stay/lose-shift',
-            GAMBLERS_FALLACY: 'gambler\'s fallacy',
-            COUNTER_BOT: 'countering bot patterns',
-            RANDOM: 'pseudo-random',
-            FREQUENCY_BIAS: 'frequency bias',
-            REPEAT_AVOIDANCE: 'repeat avoidance',
-            SPAMMER: 'move spammer',
-            HUMAN_RANDOM: 'human-like random'
-        };
-
-        // Player type thresholds
-        const PLAYER_TYPES = {
-            RANDOM: { name: "Random", threshold: 0.85 },
-            SPAMMER: { name: "Spammer", threshold: 0.9 },
-            CYCLIC: { name: "Cyclic", threshold: 0.7 },
-            COUNTER: { name: "Counter-Player", threshold: 0.6 },
-            HUMAN: { name: "Human", threshold: 0.4 },
-            PREDICTABLE: { name: "Predictable", threshold: 0.3 }
-        };
-
         // DOM elements
         const resultEl = document.getElementById('result');
-        const patternInfoEl = document.getElementById('pattern-info');
-        const confidenceValueEl = document.getElementById('confidence-value');
-        const confidenceLevelEl = document.getElementById('confidence-level');
-        const strategyTagsEl = document.getElementById('strategy-tags');
-        const repetitionScoreEl = document.getElementById('repetition-score');
-        const randomnessScoreEl = document.getElementById('randomness-score');
-        const patternCycleEl = document.getElementById('pattern-cycle');
-        const patternVisEl = document.getElementById('pattern-vis');
-        const playerTypeEl = document.getElementById('player-type');
-        const aiLevelEl = document.getElementById('ai-level');
-        
+        const analysisEl = document.getElementById('analysis');
+        const patternEl = document.getElementById('pattern');
+
         // Event listeners
         document.querySelectorAll('.choice').forEach(choice => {
             choice.addEventListener('click', (e) => {
-                const userChoice = e.target.getAttribute('data-choice');
-                playGame(userChoice);
+                const move = e.target.getAttribute('data-choice');
+                play(move);
             });
         });
 
-        function playGame(userChoice) {
-            state.gamesPlayed++;
-            state.moveCounts[userChoice]++;
+        function play(userMove) {
+            // Update game state
+            state.games++;
+            state.counts[userMove]++;
             
-            // Update all tracking systems
-            updateTransitions(userChoice);
-            updateRepetitionCounters(userChoice);
-            updateRandomnessScore(userChoice);
+            // Track streaks
+            if (userMove === state.lastMove) {
+                state.streaks[userMove]++;
+            } else {
+                state.streaks[userMove] = 1;
+            }
             
-            // Detect player type and strategies
-            detectPlayerType();
-            detectStrategies(userChoice);
-            updateAILevel();
+            // Update transitions
+            if (state.lastMove) {
+                state.transitions[state.lastMove][userMove]++;
+            }
             
-            // Bot makes its choice using ultimate decision making
-            const { botChoice, confidence, strategy } = makeUltimateDecision();
-            state.confidence = confidence;
+            // AI makes its move
+            const aiMove = getAIMove(userMove);
             
             // Determine winner
-            let result;
-            if (userChoice === botChoice) {
-                result = 'tie';
-                state.ties++;
-            } else if (beats[userChoice] === botChoice) {
-                result = 'user';
-                state.userWins++;
+            let outcome;
+            if (userMove === aiMove) {
+                outcome = 'tie';
+            } else if (beats[userMove] === aiMove) {
+                outcome = 'win';
+                state.wins++;
             } else {
-                result = 'bot';
-                state.botWins++;
+                outcome = 'lose';
+                state.losses++;
             }
             
-            // Update game state
-            state.history.push(userChoice);
-            state.lastBotMove = botChoice;
-            updateStreak(result);
+            // Update history
+            state.history.push(userMove);
+            state.lastMove = userMove;
+            
+            // Keep history lean (max 50 moves)
+            if (state.history.length > 50) {
+                state.history.shift();
+            }
             
             // Update UI
-            updateUI(userChoice, botChoice, result, strategy);
+            updateUI(userMove, aiMove, outcome);
         }
         
-        function updateTransitions(userChoice) {
-            // Update order1 transitions
-            if (state.history.length > 0) {
-                const lastMove = state.history[state.history.length - 1];
-                state.transitions.order1[lastMove][userChoice]++;
+        function getAIMove(userMove) {
+            // 1. Immediate spam detection (3+ repeats)
+            if (state.streaks[userMove] >= 3) {
+                return beats[userMove];
             }
             
-            // Update order2 transitions
-            if (state.history.length > 1) {
-                const lastTwo = state.history.slice(-2);
-                const key = `${lastTwo[0]}-${lastTwo[1]}`;
-                state.transitions.order2[key][userChoice]++;
-            }
-            
-            // Update order3 transitions
-            if (state.history.length > 2) {
-                const lastThree = state.history.slice(-3);
-                const key = `${lastThree[0]}-${lastThree[1]}-${lastThree[2]}`;
-                state.transitions.order3[key][userChoice]++;
-            }
-        }
-        
-        function updateRepetitionCounters(userChoice) {
-            // Track last 10 moves
-            state.lastTenMoves.push(userChoice);
-            if (state.lastTenMoves.length > 10) {
-                state.lastTenMoves.shift();
-            }
-            
-            // Increase counter for the chosen move
-            state.repetitionCounters[userChoice]++;
-            
-            // Decay other counters (forgetting factor)
-            for (const move in state.repetitionCounters) {
-                if (move !== userChoice) {
-                    state.repetitionCounters[move] *= 0.6; // Strong decay
-                }
-            }
-            
-            // Check for consecutive repeats
-            if (state.history.length > 0 && 
-                state.history[state.history.length - 1] === userChoice) {
-                state.consecutiveRepeats++;
-            } else {
-                state.consecutiveRepeats = 0;
-            }
-        }
-        
-        function updateRandomnessScore(userChoice) {
-            // Calculate move distribution variance
-            const total = state.gamesPlayed || 1;
-            const expected = total / 3;
-            const variance = (
-                Math.abs(state.moveCounts.rock - expected) +
-                Math.abs(state.moveCounts.paper - expected) +
-                Math.abs(state.moveCounts.scissors - expected)
-            ) / total;
-            
-            // Recent randomness (last 20 moves)
-            if (state.history.length >= 20) {
-                const recentCounts = { rock: 0, paper: 0, scissors: 0 };
-                state.history.slice(-20).forEach(m => recentCounts[m]++);
-                const recentVariance = (
-                    Math.abs(recentCounts.rock - 6.67) +
-                    Math.abs(recentCounts.paper - 6.67) +
-                    Math.abs(recentCounts.scissors - 6.67)
-                ) / 20;
+            // 2. Markov chain prediction
+            if (state.lastMove && state.games > 5) {
+                const predictions = state.transitions[state.lastMove];
+                const total = predictions.rock + predictions.paper + predictions.scissors;
                 
-                state.randomnessScore = 1 - Math.min(variance, recentVariance) * 3;
-                state.recentRandomness.push(state.randomnessScore);
-                if (state.recentRandomness.length > 10) state.recentRandomness.shift();
-            }
-            
-            updateRandomnessUI();
-        }
-        
-        function detectPlayerType() {
-            if (state.gamesPlayed < 5) return;
-            
-            // Calculate repetition score
-            const totalMoves = state.gamesPlayed;
-            const maxRepetition = Math.max(...Object.values(state.repetitionCounters));
-            const repetitionScore = maxRepetition / totalMoves;
-            
-            // Check for cyclic patterns
-            const cycle = detectCycle();
-            
-            // Determine player type
-            if (repetitionScore > PLAYER_TYPES.SPAMMER.threshold) {
-                state.playerType = PLAYER_TYPES.SPAMMER;
-                state.detectedStrategies.add(STRATEGIES.SPAMMER);
-            } 
-            else if (cycle && state.gamesPlayed > 10) {
-                state.playerType = PLAYER_TYPES.CYCLIC;
-                state.patternCycle = cycle;
-            }
-            else if (state.randomnessScore > PLAYER_TYPES.RANDOM.threshold) {
-                state.playerType = PLAYER_TYPES.RANDOM;
-                state.detectedStrategies.add(STRATEGIES.RANDOM);
-            }
-            else if (repetitionScore < PLAYER_TYPES.PREDICTABLE.threshold) {
-                state.playerType = PLAYER_TYPES.PREDICTABLE;
-            }
-            else {
-                state.playerType = PLAYER_TYPES.HUMAN;
-                state.detectedStrategies.add(STRATEGIES.HUMAN_RANDOM);
-            }
-            
-            // Check if player is trying to counter our patterns
-            if (state.gamesPlayed > 15) {
-                const counterScore = calculateCounterScore();
-                if (counterScore > PLAYER_TYPES.COUNTER.threshold) {
-                    state.playerType = PLAYER_TYPES.COUNTER;
-                    state.antiPatternMode = true;
-                    state.detectedStrategies.add(STRATEGIES.COUNTER_BOT);
-                }
-            }
-            
-            updatePlayerTypeUI();
-        }
-        
-        function detectCycle() {
-            if (state.history.length < 6) return null;
-            
-            // Look for cycles of length 2-5
-            for (let cycleLength = 2; cycleLength <= 5; cycleLength++) {
-                if (state.history.length < cycleLength * 2) continue;
-                
-                const recent = state.history.slice(-cycleLength);
-                const previous = state.history.slice(-cycleLength * 2, -cycleLength);
-                
-                if (JSON.stringify(recent) === JSON.stringify(previous)) {
-                    return recent;
-                }
-            }
-            return null;
-        }
-        
-        function calculateCounterScore() {
-            // Measures how often player beats our last move
-            let counterMoves = 0;
-            for (let i = 1; i < state.history.length; i++) {
-                if (beats[state.history[i]] === state.history[i-1]) {
-                    counterMoves++;
-                }
-            }
-            return counterMoves / (state.history.length - 1);
-        }
-        
-        function detectStrategies(userChoice) {
-            // Detect win-stay/lose-shift
-            if (state.history.length >= 2) {
-                const lastResult = getGameResult(state.history.length - 1);
-                const currentMove = state.history[state.history.length - 1];
-                const prevMove = state.history[state.history.length - 2];
-                
-                if (lastResult === 'user' && currentMove === prevMove) {
-                    state.strategyHistory.push(STRATEGIES.WIN_STAY);
-                } 
-                if (lastResult === 'bot' && currentMove !== prevMove) {
-                    state.strategyHistory.push(STRATEGIES.WIN_STAY);
-                }
-            }
-            
-            // Detect repeat avoidance
-            if (state.history.length >= 4) {
-                const uniqueLastThree = new Set(state.history.slice(-3));
-                if (uniqueLastThree.size === 3) {
-                    state.strategyHistory.push(STRATEGIES.REPEAT_AVOIDANCE);
-                }
-            }
-            
-            // Detect gambler's fallacy
-            if (state.history.length >= 5) {
-                const recentMoves = state.history.slice(-5);
-                const missingMoves = moves.filter(m => !recentMoves.includes(m));
-                if (missingMoves.length === 1 && !missingMoves.includes(userChoice)) {
-                    state.strategyHistory.push(STRATEGIES.GAMBLERS_FALLACY);
-                }
-            }
-            
-            // Update detected strategies based on frequency
-            const strategyCounts = {};
-            state.strategyHistory.forEach(strategy => {
-                strategyCounts[strategy] = (strategyCounts[strategy] || 0) + 1;
-            });
-            
-            for (const [strategy, count] of Object.entries(strategyCounts)) {
-                if (count / state.strategyHistory.length > 0.3) {
-                    state.detectedStrategies.add(strategy);
-                }
-            }
-        }
-        
-        function makeUltimateDecision() {
-            // Initialize with weighted random move
-            let botChoice = weightedRandomMove();
-            let confidence = 0.4;
-            let strategy = "Weighted random move";
-            
-            // Use deeper analysis after 5 moves
-            if (state.gamesPlayed >= 5) {
-                // 1. Check for immediate repetition (spam)
-                if (state.consecutiveRepeats >= 1) {
-                    const spamMove = state.lastTenMoves[state.lastTenMoves.length - 1];
-                    if (spamMove) {
-                        botChoice = beats[spamMove];
-                        confidence = 0.95;
-                        strategy = "Countering repeated move";
+                if (total > 3) { // Enough data
+                    let bestMove = 'rock';
+                    let highest = predictions.rock;
+                    
+                    if (predictions.paper > highest) {
+                        bestMove = 'paper';
+                        highest = predictions.paper;
                     }
-                }
-                
-                // 2. Try 3rd order Markov prediction
-                if (state.history.length >= 3 && state.predictionDepth >= 3) {
-                    const lastThree = state.history.slice(-3);
-                    const key = `${lastThree[0]}-${lastThree[1]}-${lastThree[2]}`;
-                    const prediction = predictFromTransitions(state.transitions.order3[key]);
-                    if (prediction.confidence > 0.65) {
-                        botChoice = beats[prediction.move];
-                        confidence = prediction.confidence * 0.9;
-                        strategy = "Third-order pattern recognition";
+                    if (predictions.scissors > highest) {
+                        bestMove = 'scissors';
                     }
-                }
-                
-                // 3. Try 2nd order Markov prediction
-                if (state.history.length >= 2 && state.predictionDepth >= 2) {
-                    const lastTwo = state.history.slice(-2);
-                    const key = `${lastTwo[0]}-${lastTwo[1]}`;
-                    const prediction = predictFromTransitions(state.transitions.order2[key]);
-                    if (prediction.confidence > 0.6) {
-                        if (prediction.confidence > confidence) {
-                            botChoice = beats[prediction.move];
-                            confidence = prediction.confidence * 0.85;
-                            strategy = "Second-order pattern recognition";
-                        }
-                    }
-                }
-                
-                // 4. Frequency analysis with recent move bias
-                const freqPrediction = predictFromFrequency();
-                if (freqPrediction.confidence > confidence) {
-                    botChoice = beats[freqPrediction.move];
-                    confidence = freqPrediction.confidence;
-                    strategy = "Weighted frequency analysis";
-                }
-                
-                // 5. Special handling for random players
-                if (state.randomnessScore > 0.8) {
-                    return handleRandomOpponent();
+                    
+                    return beats[bestMove];
                 }
             }
             
-            // Final validation
-            if (!botChoice || !moves.includes(botChoice)) {
-                botChoice = randomMove();
-                confidence = 0.3;
-                strategy = "Fallback random move";
-            }
+            // 3. Frequency analysis
+            const total = state.games || 1;
+            const rockFreq = state.counts.rock / total;
+            const paperFreq = state.counts.paper / total;
             
-            return { botChoice, confidence, strategy };
-        }
-        
-        function handleRandomOpponent() {
-            // Strategy 1: Exploit statistical deviations
-            const leastUsedMove = Object.entries(state.moveCounts)
-                .reduce((min, [move, count]) => 
-                    count < min.count ? { move, count } : min, 
-                    { move: 'rock', count: Infinity }).move;
-            
-            // Strategy 2: Counter recent statistical trends
-            const recentMoves = state.history.slice(-10);
-            const recentCounts = { rock: 0, paper: 0, scissors: 0 };
-            recentMoves.forEach(m => recentCounts[m]++);
-            const trendingMove = Object.entries(recentCounts)
-                .reduce((max, [move, count]) => 
-                    count > max.count ? { move, count } : max, 
-                    { move: 'rock', count: -1 }).move;
-            
-            // Combine strategies
-            const botChoice = Math.random() < 0.6 ? beats[trendingMove] : beats[leastUsedMove];
-            
-            return {
-                botChoice: botChoice,
-                confidence: 0.7,
-                strategy: "Countering random tendencies"
-            };
-        }
-        
-        function weightedRandomMove() {
-            // Calculate move probabilities based on opponent's tendencies
-            const total = state.gamesPlayed || 1;
-            const rockWeight = 0.33 - (state.moveCounts.rock / total - 0.33) * 0.5;
-            const paperWeight = 0.33 - (state.moveCounts.paper / total - 0.33) * 0.5;
-            const scissorsWeight = 0.33 - (state.moveCounts.scissors / total - 0.33) * 0.5;
-            
+            // Weighted random based on opponent's frequencies
             const rand = Math.random();
-            if (rand < rockWeight) return 'rock';
-            if (rand < rockWeight + paperWeight) return 'paper';
-            return 'scissors';
+            if (rand < rockFreq * 0.9) return 'paper';
+            if (rand < (rockFreq + paperFreq) * 0.9) return 'scissors';
+            return 'rock';
         }
         
-        function predictFromTransitions(transitionCounts) {
-            const total = Object.values(transitionCounts).reduce((a, b) => a + b, 0);
-            if (total === 0) return { move: randomMove(), confidence: 0 };
-            
-            let maxCount = -1;
-            let predicted = randomMove();
-            
-            for (const [move, count] of Object.entries(transitionCounts)) {
-                if (count > maxCount) {
-                    maxCount = count;
-                    predicted = move;
-                }
-            }
-            
-            const confidence = maxCount / total;
-            return { move: predicted, confidence };
-        }
-        
-        function predictFromFrequency() {
-            // Recent moves (last 10) get 3x weight
-            const recentMoves = state.history.slice(-10);
-            const recentCounts = { rock: 0, paper: 0, scissors: 0 };
-            recentMoves.forEach(move => recentCounts[move] += 3);
-            
-            // Older moves get normal weight
-            const olderMoves = state.history.slice(0, -10);
-            olderMoves.forEach(move => recentCounts[move] += 1);
-            
-            let predicted = null;
-            let maxCount = -1;
-            
-            for (const [move, count] of Object.entries(recentCounts)) {
-                if (count > maxCount) {
-                    maxCount = count;
-                    predicted = move;
-                }
-            }
-            
-            const total = Object.values(recentCounts).reduce((a, b) => a + b, 0);
-            const confidence = maxCount / total;
-            
-            return { move: predicted, confidence: Math.max(0.4, confidence) };
-        }
-        
-        function predictNextInCycle() {
-            if (!state.patternCycle) return null;
-            
-            const cyclePos = state.history.length % state.patternCycle.length;
-            return state.patternCycle[cyclePos];
-        }
-        
-        function randomMove() {
-            return moves[Math.floor(Math.random() * moves.length)];
-        }
-        
-        function updateStreak(result) {
-            if (result === 'bot') {
-                if (state.streak >= 0) {
-                    state.streak++;
-                } else {
-                    state.streak = 1;
-                }
-                state.lastStreakMove = state.lastBotMove;
-            } else if (result === 'user') {
-                if (state.streak <= 0) {
-                    state.streak--;
-                } else {
-                    state.streak = -1;
-                }
-            }
-        }
-        
-        function updateAILevel() {
-            if (state.gamesPlayed < 5) {
-                state.aiLevel = "Observing";
-                state.predictionDepth = 1;
-            } 
-            else if (state.gamesPlayed < 15) {
-                state.aiLevel = "Learning";
-                state.predictionDepth = 2;
-            }
-            else {
-                state.aiLevel = "Master";
-                state.predictionDepth = 3;
-            }
-            
-            if (state.randomnessScore > 0.8) {
-                state.aiLevel += " (Random Opponent Mode)";
-            }
-            else if (state.playerType && state.playerType.name === "Spammer") {
-                state.aiLevel += " (Anti-Spam Mode)";
-            }
-            
-            aiLevelEl.textContent = `AI Level: ${state.aiLevel}`;
-        }
-        
-        function updateUI(userChoice, botChoice, result, strategy) {
-            // Update result display
-            let resultText = `You chose ${moveToEmoji[userChoice]} ${moveNames[userChoice]}, `;
-            resultText += `AI chose ${moveToEmoji[botChoice]} ${moveNames[botChoice]}. `;
-            
-            switch (result) {
-                case 'user':
-                    resultText += '<span style="color:#2ecc71;">You win!</span>';
-                    break;
-                case 'bot':
-                    resultText += '<span style="color:#e74c3c;">AI wins!</span>';
-                    break;
-                case 'tie':
-                    resultText += '<span style="color:#3498db;">It\'s a tie!</span>';
-                    break;
-            }
-            
-            resultText += `<br><small>AI Strategy: ${strategy}</small>`;
-            resultEl.innerHTML = resultText;
+        function updateUI(userMove, aiMove, outcome) {
+            // Update result
+            let resultText = `${emoji[userMove]} vs ${emoji[aiMove]} - `;
+            resultText += outcome === 'win' ? 'You win!' :
+                         outcome === 'lose' ? 'AI wins!' : 'Tie!';
+            resultEl.textContent = resultText;
             
             // Update stats
-            document.getElementById('games-played').textContent = state.gamesPlayed;
-            document.getElementById('user-wins').textContent = state.userWins;
-            document.getElementById('bot-wins').textContent = state.botWins;
-            document.getElementById('win-rate').textContent = 
-                ((state.botWins / state.gamesPlayed) * 100).toFixed(1) + '%';
+            document.getElementById('games').textContent = state.games;
+            document.getElementById('wins').textContent = state.wins;
+            document.getElementById('losses').textContent = state.losses;
+            document.getElementById('rate').textContent = 
+                Math.round((state.losses / state.games) * 100) + '%';
             
-            // Update confidence meter
-            confidenceValueEl.textContent = Math.round(state.confidence * 100);
-            confidenceLevelEl.style.width = `${state.confidence * 100}%`;
-            
-            // Update pattern info
-            updatePatternInfo();
-            
-            // Update strategy tags
-            updateStrategyTags();
+            // Update analysis
+            updateAnalysis();
         }
         
-        function updatePatternInfo() {
-            if (state.gamesPlayed < 3) {
-                patternInfoEl.textContent = 'Collecting initial data patterns...';
+        function updateAnalysis() {
+            if (state.games < 3) {
+                analysisEl.textContent = 'Learning your patterns...';
                 return;
             }
             
-            const analysis = [];
+            let analysis = '';
             
-            // Frequency analysis
-            const total = state.gamesPlayed;
-            const rockPct = (state.moveCounts.rock / total * 100).toFixed(1);
-            const paperPct = (state.moveCounts.paper / total * 100).toFixed(1);
-            const scissorsPct = (state.moveCounts.scissors / total * 100).toFixed(1);
-            
-            analysis.push(`<strong>Move frequencies:</strong> Rock ${rockPct}%, Paper ${paperPct}%, Scissors ${scissorsPct}%`);
-            
-            // Recent moves
-            if (state.history.length >= 3) {
-                const recent = state.history.slice(-3).map(m => moveNames[m]).join(' → ');
-                analysis.push(`<strong>Recent sequence:</strong> ${recent}`);
-            }
-            
-            // Transition probabilities
-            if (state.history.length >= 2) {
-                const lastMove = state.history[state.history.length - 1];
-                const transitions = state.transitions.order1[lastMove];
-                const totalTransitions = Object.values(transitions).reduce((a, b) => a + b, 0);
-                
-                if (totalTransitions > 0) {
-                    const rockNext = (transitions.rock / totalTransitions * 100).toFixed(1);
-                    const paperNext = (transitions.paper / totalTransitions * 100).toFixed(1);
-                    const scissorsNext = (transitions.scissors / totalTransitions * 100).toFixed(1);
-                    
-                    analysis.push(`After ${moveNames[lastMove]}, you usually throw: Rock ${rockNext}%, Paper ${paperNext}%, Scissors ${scissorsNext}%`);
+            // Detect spam
+            for (const move in state.streaks) {
+                if (state.streaks[move] >= 3) {
+                    analysis += `You're repeating ${move}! `;
                 }
             }
             
-            patternInfoEl.innerHTML = analysis.join('<br>');
-        }
-        
-        function updateRandomnessUI() {
-            randomnessScoreEl.textContent = `Randomness level: ${(state.randomnessScore * 100).toFixed(1)}%`;
-        }
-        
-        function updateStrategyTags() {
-            if (state.detectedStrategies.size === 0) {
-                strategyTagsEl.innerHTML = 'No strong strategy patterns detected yet';
-                return;
-            }
+            // Frequency analysis
+            const total = state.games;
+            analysis += `You play: R ${Math.round(state.counts.rock/total*100)}%, `;
+            analysis += `P ${Math.round(state.counts.paper/total*100)}%, `;
+            analysis += `S ${Math.round(state.counts.scissors/total*100)}%`;
             
-            strategyTagsEl.innerHTML = '<strong>Detected Player Strategies:</strong><br>';
-            state.detectedStrategies.forEach(strategy => {
-                strategyTagsEl.innerHTML += `<span class="strategy-tag">${strategy}</span>`;
-            });
-        }
-        
-        function updatePlayerTypeUI() {
-            if (state.playerType) {
-                playerTypeEl.textContent = `Player type: ${state.playerType.name}`;
-            }
+            analysisEl.textContent = analysis;
             
-            // Calculate repetition percentage
-            const maxRepetition = Math.max(...Object.values(state.repetitionCounters));
-            const total = Object.values(state.repetitionCounters).reduce((a,b) => a + b, 0);
-            const repetitionPct = total > 0 ? (maxRepetition / total * 100).toFixed(1) : 0;
-            repetitionScoreEl.textContent = `Repetition detection: ${repetitionPct}%`;
-            
-            // Display pattern cycle if detected
-            if (state.patternCycle) {
-                patternCycleEl.textContent = `Pattern cycle: ${state.patternCycle.join(' → ')}`;
-                patternVisEl.textContent = `Last moves: ${state.lastTenMoves.join(' ')}`;
-            } else {
-                patternCycleEl.textContent = 'Pattern cycle: None detected';
-                patternVisEl.textContent = `Last moves: ${state.lastTenMoves.join(' ')}`;
-            }
-        }
-        
-        function getGameResult(index) {
-            if (index <= 0 || index >= state.history.length) return null;
-            
-            const userMove = state.history[index];
-            const botMove = state.history[index - 1];
-            
-            if (userMove === botMove) return 'tie';
-            return beats[userMove] === botMove ? 'user' : 'bot';
+            // Show recent pattern
+            patternEl.textContent = state.history.slice(-10).join(' → ');
         }
     </script>
 </body>
