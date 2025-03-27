@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master RPS AI | Doulet Media</title>
+    <title>Master RPS AI v2.0 | Doulet Media</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -121,8 +121,8 @@
     </style>
 </head>
 <body>
-    <h1>Master RPS AI</h1>
-    <p class="subtitle">Developed by Doulet Media | The Ultimate Pattern-Recognition AI</p>
+    <h1>Master RPS AI v2.0</h1>
+    <p class="subtitle">Developed by Doulet Media | Now with guaranteed valid moves</p>
     
     <div class="choices">
         <div class="choice" data-choice="rock">✊</div>
@@ -172,7 +172,7 @@
     </div>
     
     <div class="footer">
-        <p>© 2024 Doulet Media | This AI learns your patterns to maximize wins—no cheating!</p>
+        <p>© 2024 Doulet Media | This AI learns your patterns to maximize wins—with no undefined moves!</p>
     </div>
     
     <script>
@@ -485,138 +485,97 @@
         }
         
         function makeAdvancedDecision() {
-            // Handle move spammers (e.g., 1000x scissors)
-            if (state.consecutiveRepeats >= 2) {
-                const spamMove = state.lastFiveMoves[state.lastFiveMoves.length - 1];
-                return {
-                    botChoice: beats[spamMove],
-                    confidence: 0.98,
-                    strategy: "Countering move spam"
-                };
-            }
+            // Initialize with a random move as fallback
+            let botChoice = randomMove();
+            let confidence = 0.3;
+            let strategy = "Initial random move";
             
-            // Handle cyclic patterns
-            if (state.patternCycle) {
-                const nextInCycle = predictNextInCycle();
-                if (nextInCycle) {
-                    return {
-                        botChoice: beats[nextInCycle],
-                        confidence: 0.9,
-                        strategy: "Countering cyclic pattern"
-                    };
+            // Only try pattern recognition after 3 moves
+            if (state.gamesPlayed >= 3) {
+                // Handle move spammers first (e.g., 1000x scissors)
+                if (state.consecutiveRepeats >= 2) {
+                    const spamMove = state.lastFiveMoves[state.lastFiveMoves.length - 1];
+                    if (spamMove) { // Ensure spamMove is defined
+                        botChoice = beats[spamMove];
+                        confidence = 0.98;
+                        strategy = "Countering move spam";
+                    }
                 }
-            }
-            
-            // Handle anti-pattern mode (when player is countering us)
-            if (state.antiPatternMode && Math.random() < 0.7) {
-                return {
-                    botChoice: randomMove(),
-                    confidence: 0.6,
-                    strategy: "Anti-pattern randomization"
-                };
-            }
-            
-            // Try multiple prediction methods with fallbacks
-            const predictions = [];
-            
-            // 1. Second-order Markov prediction
-            if (state.history.length >= 2) {
-                const lastTwo = state.history.slice(-2);
-                const key = `${lastTwo[0]}-${lastTwo[1]}`;
-                const prediction = predictFromTransitions(state.transitions.order2[key]);
-                if (prediction.confidence > 0.6) {
-                    predictions.push({
-                        move: beats[prediction.move],
-                        confidence: prediction.confidence,
-                        strategy: 'Second-order pattern recognition'
-                    });
+                
+                // Handle cyclic patterns if detected
+                else if (state.patternCycle) {
+                    const nextInCycle = predictNextInCycle();
+                    if (nextInCycle) {
+                        botChoice = beats[nextInCycle];
+                        confidence = 0.9;
+                        strategy = "Countering cyclic pattern";
+                    }
                 }
-            }
-            
-            // 2. First-order Markov prediction
-            const lastMove = state.history[state.history.length - 1];
-            const prediction1 = predictFromTransitions(state.transitions.order1[lastMove]);
-            if (prediction1.confidence > 0.55) {
-                predictions.push({
-                    move: beats[prediction1.move],
-                    confidence: prediction1.confidence,
-                    strategy: 'First-order pattern recognition'
-                });
-            }
-            
-            // 3. Frequency analysis with decay (recent moves weighted more)
-            const freqPrediction = predictFromFrequency();
-            predictions.push({
-                move: beats[freqPrediction.move],
-                confidence: freqPrediction.confidence,
-                strategy: 'Weighted frequency analysis'
-            });
-            
-            // 4. Strategy-specific counters
-            if (state.detectedStrategies.has(STRATEGIES.WIN_STAY)) {
-                // If player tends to repeat winning moves
-                if (state.userWins > 0 && state.history.length > 1) {
-                    const lastUserWin = [...state.history].reverse().find((_, i, arr) => {
-                        const idx = arr.length - 1 - i;
-                        return idx > 0 && beats[state.history[idx]] === state.history[idx - 1];
-                    });
-                    if (lastUserWin) {
+                
+                // Try other prediction methods if no spam/cycle detected
+                else {
+                    const predictions = [];
+                    
+                    // Second-order Markov prediction
+                    if (state.history.length >= 2) {
+                        const lastTwo = state.history.slice(-2);
+                        const key = `${lastTwo[0]}-${lastTwo[1]}`;
+                        const prediction = predictFromTransitions(state.transitions.order2[key]);
+                        if (prediction.move && prediction.confidence > 0.6) {
+                            predictions.push({
+                                move: beats[prediction.move],
+                                confidence: prediction.confidence,
+                                strategy: 'Second-order pattern recognition'
+                            });
+                        }
+                    }
+                    
+                    // First-order Markov prediction
+                    const lastMove = state.history[state.history.length - 1];
+                    const prediction1 = predictFromTransitions(state.transitions.order1[lastMove]);
+                    if (prediction1.move && prediction1.confidence > 0.55) {
                         predictions.push({
-                            move: beats[lastUserWin],
-                            confidence: 0.65,
-                            strategy: 'Countering win-stay'
+                            move: beats[prediction1.move],
+                            confidence: prediction1.confidence,
+                            strategy: 'First-order pattern recognition'
                         });
+                    }
+                    
+                    // Select the best prediction if any exist
+                    if (predictions.length > 0) {
+                        predictions.sort((a, b) => b.confidence - a.confidence);
+                        const bestPrediction = predictions[0];
+                        
+                        // Only override if we have a valid move
+                        if (bestPrediction.move) {
+                            botChoice = bestPrediction.move;
+                            confidence = bestPrediction.confidence;
+                            strategy = bestPrediction.strategy;
+                        }
                     }
                 }
             }
             
-            if (state.detectedStrategies.has(STRATEGIES.REPEAT_AVOIDANCE)) {
-                // If player avoids repeating moves
-                const lastMove = state.history[state.history.length - 1];
-                const possibleMoves = moves.filter(m => m !== lastMove);
-                if (possibleMoves.length === 2) {
-                    const move1Count = state.moveCounts[possibleMoves[0]];
-                    const move2Count = state.moveCounts[possibleMoves[1]];
-                    const predicted = move1Count > move2Count ? possibleMoves[0] : possibleMoves[1];
-                    predictions.push({
-                        move: beats[predicted],
-                        confidence: 0.6,
-                        strategy: 'Countering repeat avoidance'
-                    });
-                }
+            // Final validation to ensure we never return undefined
+            if (!botChoice || !['rock', 'paper', 'scissors'].includes(botChoice)) {
+                botChoice = randomMove();
+                confidence = 0.3;
+                strategy = "Fallback random move";
             }
             
-            // Select the prediction with highest confidence
-            if (predictions.length > 0) {
-                predictions.sort((a, b) => b.confidence - a.confidence);
-                const bestPrediction = predictions[0];
-                
-                // Occasionally introduce randomness to avoid being too predictable
-                if (Math.random() < 0.05) {
-                    return {
-                        botChoice: randomMove(),
-                        confidence: bestPrediction.confidence * 0.7,
-                        strategy: 'Randomized ' + bestPrediction.strategy
-                    };
-                }
-                
-                return bestPrediction;
-            }
-            
-            // Fallback to countering most common move
             return {
-                botChoice: counterMostCommonMove(),
-                confidence: 0.5,
-                strategy: 'Frequency fallback'
+                botChoice: botChoice,
+                confidence: confidence,
+                strategy: strategy
             };
         }
         
         function predictFromTransitions(transitionCounts) {
             const total = Object.values(transitionCounts).reduce((a, b) => a + b, 0);
-            if (total === 0) return { move: null, confidence: 0 };
+            if (total === 0) return { move: randomMove(), confidence: 0 };
             
             let maxCount = -1;
-            let predicted = null;
+            let predicted = randomMove(); // Default to random
             
             for (const [move, count] of Object.entries(transitionCounts)) {
                 if (count > maxCount) {
@@ -627,49 +586,6 @@
             
             const confidence = maxCount / total;
             return { move: predicted, confidence };
-        }
-        
-        function predictFromFrequency() {
-            // Weight recent moves more heavily
-            const recentMoves = state.history.slice(-5);
-            const recentCounts = { rock: 0, paper: 0, scissors: 0 };
-            recentMoves.forEach(move => recentCounts[move]++);
-            
-            // Combine with overall frequencies (weighted less)
-            const totalWeight = recentMoves.length + state.history.length;
-            const rockWeight = (recentCounts.rock * 0.7 + state.moveCounts.rock * 0.3) / totalWeight;
-            const paperWeight = (recentCounts.paper * 0.7 + state.moveCounts.paper * 0.3) / totalWeight;
-            const scissorsWeight = (recentCounts.scissors * 0.7 + state.moveCounts.scissors * 0.3) / totalWeight;
-            
-            let predicted = null;
-            let maxWeight = -1;
-            
-            if (rockWeight > maxWeight) {
-                maxWeight = rockWeight;
-                predicted = 'rock';
-            }
-            if (paperWeight > maxWeight) {
-                maxWeight = paperWeight;
-                predicted = 'paper';
-            }
-            if (scissorsWeight > maxWeight) {
-                maxWeight = scissorsWeight;
-                predicted = 'scissors';
-            }
-            
-            // Confidence based on how dominant the prediction is
-            const sum = rockWeight + paperWeight + scissorsWeight;
-            const normalizedWeights = {
-                rock: rockWeight / sum,
-                paper: paperWeight / sum,
-                scissors: scissorsWeight / sum
-            };
-            
-            const confidence = (maxWeight / sum) - Math.max(
-                ...Object.values(normalizedWeights).filter(w => w !== maxWeight)
-            );
-            
-            return { move: predicted, confidence: Math.max(0.3, confidence) };
         }
         
         function predictNextInCycle() {
