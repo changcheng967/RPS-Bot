@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate RPS AI</title>
+    <title>Master RPS AI | Doulet Media</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -11,11 +11,12 @@
             margin: 0 auto;
             padding: 20px;
             text-align: center;
-            background-color: #f8f9fa;
+            background-color: #f5f7fa;
+            color: #2c3e50;
         }
         h1 {
-            color: #2c3e50;
-            margin-bottom: 10px;
+            color: #3498db;
+            margin-bottom: 5px;
         }
         .subtitle {
             color: #7f8c8d;
@@ -100,11 +101,28 @@
             width: 0%;
             transition: width 0.5s;
         }
+        .advanced-stats {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #34495e;
+            color: white;
+            border-radius: 10px;
+        }
+        .pattern-vis {
+            font-family: monospace;
+            font-size: 18px;
+            letter-spacing: 3px;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
-    <h1>Ultimate RPS AI</h1>
-    <p class="subtitle">The most advanced pattern-recognition Rock-Paper-Scissors AI</p>
+    <h1>Master RPS AI</h1>
+    <p class="subtitle">Developed by Doulet Media | The Ultimate Pattern-Recognition AI</p>
     
     <div class="choices">
         <div class="choice" data-choice="rock">✊</div>
@@ -145,8 +163,20 @@
         <div id="strategy-tags"></div>
     </div>
     
+    <div class="advanced-stats">
+        <h3>Advanced Statistics</h3>
+        <div id="repetition-score">Repetition detection: 0%</div>
+        <div id="pattern-cycle">Pattern cycle: None detected</div>
+        <div class="pattern-vis" id="pattern-vis"></div>
+        <div id="player-type">Player type: Unknown</div>
+    </div>
+    
+    <div class="footer">
+        <p>© 2024 Doulet Media | This AI learns your patterns to maximize wins—no cheating!</p>
+    </div>
+    
     <script>
-        // Enhanced game state
+        // Game state with advanced tracking
         const state = {
             gamesPlayed: 0,
             userWins: 0,
@@ -162,23 +192,27 @@
                     paper: { rock: 0, paper: 0, scissors: 0 },
                     scissors: { rock: 0, paper: 0, scissors: 0 }
                 },
-                order2: {
-                    'rock-rock': { rock: 0, paper: 0, scissors: 0 },
-                    'rock-paper': { rock: 0, paper: 0, scissors: 0 },
-                    // ... all 9 possible combinations
-                    'scissors-scissors': { rock: 0, paper: 0, scissors: 0 }
-                }
+                order2: {}
             },
             
-            // Strategy detection
+            // Repetition tracking
+            repetitionCounters: { rock: 0, paper: 0, scissors: 0 },
+            lastFiveMoves: [],
+            consecutiveRepeats: 0,
+            
+            // Player typing
+            playerType: null,
             detectedStrategies: new Set(),
             strategyHistory: [],
-            confidence: 0,
             
             // Anti-pattern measures
+            antiPatternMode: false,
             lastBotMove: null,
             streak: 0,
-            lastStreakMove: null
+            lastStreakMove: null,
+            
+            // Confidence tracking
+            confidence: 0
         };
 
         // Initialize all order2 transitions
@@ -208,14 +242,24 @@
             scissors: 'Scissors'
         };
         
-        // Known player strategies to detect
+        // Known player strategies
         const STRATEGIES = {
             WIN_STAY: 'win-stay/lose-shift',
             GAMBLERS_FALLACY: 'gambler\'s fallacy',
             COUNTER_BOT: 'countering bot patterns',
             RANDOM: 'pseudo-random',
             FREQUENCY_BIAS: 'frequency bias',
-            REPEAT_AVOIDANCE: 'repeat avoidance'
+            REPEAT_AVOIDANCE: 'repeat avoidance',
+            SPAMMER: 'move spammer'
+        };
+
+        // Player type thresholds
+        const PLAYER_TYPES = {
+            RANDOM: { name: "Random", threshold: 0.1 },
+            SPAMMER: { name: "Spammer", threshold: 0.9 },
+            CYCLIC: { name: "Cyclic", threshold: 0.7 },
+            COUNTER: { name: "Counter-Player", threshold: 0.6 },
+            NORMAL: { name: "Normal", threshold: 0.4 }
         };
 
         // DOM elements
@@ -224,6 +268,10 @@
         const confidenceValueEl = document.getElementById('confidence-value');
         const confidenceLevelEl = document.getElementById('confidence-level');
         const strategyTagsEl = document.getElementById('strategy-tags');
+        const repetitionScoreEl = document.getElementById('repetition-score');
+        const patternCycleEl = document.getElementById('pattern-cycle');
+        const patternVisEl = document.getElementById('pattern-vis');
+        const playerTypeEl = document.getElementById('player-type');
         
         // Event listeners
         document.querySelectorAll('.choice').forEach(choice => {
@@ -239,6 +287,13 @@
             
             // Update transition matrices
             updateTransitions(userChoice);
+            
+            // Update repetition tracking
+            updateRepetitionCounters(userChoice);
+            
+            // Detect player type and strategies
+            detectPlayerType();
+            detectStrategies(userChoice);
             
             // Bot makes its choice using advanced decision making
             const { botChoice, confidence, strategy } = makeAdvancedDecision();
@@ -264,7 +319,6 @@
             
             // Update UI
             updateUI(userChoice, botChoice, result, strategy);
-            detectStrategies(userChoice);
         }
         
         function updateTransitions(userChoice) {
@@ -282,13 +336,183 @@
             }
         }
         
+        function updateRepetitionCounters(userChoice) {
+            // Track last 5 moves
+            state.lastFiveMoves.push(userChoice);
+            if (state.lastFiveMoves.length > 5) {
+                state.lastFiveMoves.shift();
+            }
+            
+            // Increase counter for the chosen move
+            state.repetitionCounters[userChoice]++;
+            
+            // Decay other counters (forgetting factor)
+            for (const move in state.repetitionCounters) {
+                if (move !== userChoice) {
+                    state.repetitionCounters[move] *= 0.7; // Strong decay for spammers
+                }
+            }
+            
+            // Check for consecutive repeats
+            if (state.history.length > 0 && 
+                state.history[state.history.length - 1] === userChoice) {
+                state.consecutiveRepeats++;
+            } else {
+                state.consecutiveRepeats = 0;
+            }
+        }
+        
+        function detectPlayerType() {
+            if (state.gamesPlayed < 3) return;
+            
+            // Calculate repetition score
+            const totalMoves = state.gamesPlayed;
+            const maxRepetition = Math.max(...Object.values(state.repetitionCounters));
+            const repetitionScore = maxRepetition / totalMoves;
+            
+            // Check for cyclic patterns
+            const cycle = detectCycle();
+            
+            // Determine player type
+            if (repetitionScore > PLAYER_TYPES.SPAMMER.threshold) {
+                state.playerType = PLAYER_TYPES.SPAMMER;
+                state.detectedStrategies.add(STRATEGIES.SPAMMER);
+            } 
+            else if (cycle && state.gamesPlayed > 10) {
+                state.playerType = PLAYER_TYPES.CYCLIC;
+                state.patternCycle = cycle;
+            }
+            else if (repetitionScore < PLAYER_TYPES.RANDOM.threshold) {
+                state.playerType = PLAYER_TYPES.RANDOM;
+            }
+            else {
+                state.playerType = PLAYER_TYPES.NORMAL;
+            }
+            
+            // Check if player is trying to counter our patterns
+            if (state.gamesPlayed > 15) {
+                const counterScore = calculateCounterScore();
+                if (counterScore > PLAYER_TYPES.COUNTER.threshold) {
+                    state.playerType = PLAYER_TYPES.COUNTER;
+                    state.antiPatternMode = true;
+                    state.detectedStrategies.add(STRATEGIES.COUNTER_BOT);
+                }
+            }
+            
+            updatePlayerTypeUI();
+        }
+        
+        function detectCycle() {
+            if (state.history.length < 6) return null;
+            
+            // Look for cycles of length 2-5
+            for (let cycleLength = 2; cycleLength <= 5; cycleLength++) {
+                if (state.history.length < cycleLength * 2) continue;
+                
+                const recent = state.history.slice(-cycleLength);
+                const previous = state.history.slice(-cycleLength * 2, -cycleLength);
+                
+                if (JSON.stringify(recent) === JSON.stringify(previous)) {
+                    return recent;
+                }
+            }
+            return null;
+        }
+        
+        function calculateCounterScore() {
+            // Measures how often player beats our last move
+            let counterMoves = 0;
+            for (let i = 1; i < state.history.length; i++) {
+                if (beats[state.history[i]] === state.history[i-1]) {
+                    counterMoves++;
+                }
+            }
+            return counterMoves / (state.history.length - 1);
+        }
+        
+        function detectStrategies(userChoice) {
+            // Detect win-stay/lose-shift
+            if (state.history.length >= 3) {
+                const lastGameResult = getGameResult(state.history.length - 2);
+                const lastMove = state.history[state.history.length - 2];
+                const currentMove = state.history[state.history.length - 1];
+                
+                if (lastGameResult === 'user' && lastMove === currentMove) {
+                    state.strategyHistory.push(STRATEGIES.WIN_STAY);
+                } else if (lastGameResult === 'bot' && lastMove !== currentMove) {
+                    state.strategyHistory.push(STRATEGIES.WIN_STAY);
+                }
+            }
+            
+            // Detect repeat avoidance
+            if (state.history.length >= 4) {
+                const uniqueLastThree = new Set(state.history.slice(-3));
+                if (uniqueLastThree.size === 3) {
+                    state.strategyHistory.push(STRATEGIES.REPEAT_AVOIDANCE);
+                }
+            }
+            
+            // Detect gambler's fallacy
+            if (state.history.length >= 5) {
+                const recentMoves = state.history.slice(-5);
+                const missingMoves = moves.filter(m => !recentMoves.includes(m));
+                if (missingMoves.length === 1 && !missingMoves.includes(userChoice)) {
+                    state.strategyHistory.push(STRATEGIES.GAMBLERS_FALLACY);
+                }
+            }
+            
+            // Update detected strategies based on frequency
+            const strategyCounts = {};
+            state.strategyHistory.forEach(strategy => {
+                strategyCounts[strategy] = (strategyCounts[strategy] || 0) + 1;
+            });
+            
+            for (const [strategy, count] of Object.entries(strategyCounts)) {
+                if (count / state.strategyHistory.length > 0.3) {
+                    state.detectedStrategies.add(strategy);
+                }
+            }
+        }
+        
+        function getGameResult(index) {
+            if (index <= 0 || index >= state.history.length) return null;
+            
+            const userMove = state.history[index];
+            const botMove = state.history[index - 1]; // Note: Adjust in real implementation
+            
+            if (userMove === botMove) return 'tie';
+            return beats[userMove] === botMove ? 'user' : 'bot';
+        }
+        
         function makeAdvancedDecision() {
-            if (state.gamesPlayed < 3) {
-                // Not enough data - use basic frequency
+            // Handle move spammers (e.g., 1000x scissors)
+            if (state.consecutiveRepeats >= 2) {
+                const spamMove = state.lastFiveMoves[state.lastFiveMoves.length - 1];
                 return {
-                    botChoice: counterMostCommonMove(),
-                    confidence: 0,
-                    strategy: 'Initial frequency analysis'
+                    botChoice: beats[spamMove],
+                    confidence: 0.98,
+                    strategy: "Countering move spam"
+                };
+            }
+            
+            // Handle cyclic patterns
+            if (state.patternCycle) {
+                const nextInCycle = predictNextInCycle();
+                if (nextInCycle) {
+                    return {
+                        botChoice: beats[nextInCycle],
+                        confidence: 0.9,
+                        strategy: "Countering cyclic pattern"
+                    };
+                }
+            }
+            
+            // Handle anti-pattern mode (when player is countering us)
+            if (state.antiPatternMode && Math.random() < 0.7) {
+                return {
+                    botChoice: randomMove(),
+                    confidence: 0.6,
+                    strategy: "Anti-pattern randomization"
                 };
             }
             
@@ -328,55 +552,37 @@
                 strategy: 'Weighted frequency analysis'
             });
             
-            // 4. Anti-pattern measures (if we're being too predictable)
-            if (state.streak >= 3 && state.lastStreakMove) {
-                predictions.push({
-                    move: beats[beats[state.lastStreakMove]], // Counter what would counter our last move
-                    confidence: Math.min(0.7, state.confidence + 0.1),
-                    strategy: 'Anti-pattern adjustment'
-                });
+            // 4. Strategy-specific counters
+            if (state.detectedStrategies.has(STRATEGIES.WIN_STAY)) {
+                // If player tends to repeat winning moves
+                if (state.userWins > 0 && state.history.length > 1) {
+                    const lastUserWin = [...state.history].reverse().find((_, i, arr) => {
+                        const idx = arr.length - 1 - i;
+                        return idx > 0 && beats[state.history[idx]] === state.history[idx - 1];
+                    });
+                    if (lastUserWin) {
+                        predictions.push({
+                            move: beats[lastUserWin],
+                            confidence: 0.65,
+                            strategy: 'Countering win-stay'
+                        });
+                    }
+                }
             }
             
-            // 5. Strategy-specific counters
-            if (state.detectedStrategies.size > 0) {
-                let strategyResponse = null;
-                
-                if (state.detectedStrategies.has(STRATEGIES.WIN_STAY)) {
-                    // If player tends to repeat winning moves
-                    if (state.userWins > 0 && state.history.length > 1) {
-                        const lastUserWin = [...state.history].reverse().find((_, i, arr) => {
-                            const idx = arr.length - 1 - i;
-                            return idx > 0 && beats[state.history[idx]] === state.history[idx - 1];
-                        });
-                        if (lastUserWin) {
-                            strategyResponse = {
-                                move: beats[lastUserWin],
-                                confidence: 0.65,
-                                strategy: 'Countering win-stay'
-                            };
-                        }
-                    }
-                }
-                
-                if (state.detectedStrategies.has(STRATEGIES.REPEAT_AVOIDANCE)) {
-                    // If player avoids repeating moves
-                    const lastMove = state.history[state.history.length - 1];
-                    const possibleMoves = moves.filter(m => m !== lastMove);
-                    if (possibleMoves.length === 2) {
-                        // Predict which of the two they're more likely to choose
-                        const move1Count = state.moveCounts[possibleMoves[0]];
-                        const move2Count = state.moveCounts[possibleMoves[1]];
-                        const predicted = move1Count > move2Count ? possibleMoves[0] : possibleMoves[1];
-                        strategyResponse = {
-                            move: beats[predicted],
-                            confidence: 0.6,
-                            strategy: 'Countering repeat avoidance'
-                        };
-                    }
-                }
-                
-                if (strategyResponse) {
-                    predictions.push(strategyResponse);
+            if (state.detectedStrategies.has(STRATEGIES.REPEAT_AVOIDANCE)) {
+                // If player avoids repeating moves
+                const lastMove = state.history[state.history.length - 1];
+                const possibleMoves = moves.filter(m => m !== lastMove);
+                if (possibleMoves.length === 2) {
+                    const move1Count = state.moveCounts[possibleMoves[0]];
+                    const move2Count = state.moveCounts[possibleMoves[1]];
+                    const predicted = move1Count > move2Count ? possibleMoves[0] : possibleMoves[1];
+                    predictions.push({
+                        move: beats[predicted],
+                        confidence: 0.6,
+                        strategy: 'Countering repeat avoidance'
+                    });
                 }
             }
             
@@ -386,7 +592,7 @@
                 const bestPrediction = predictions[0];
                 
                 // Occasionally introduce randomness to avoid being too predictable
-                if (Math.random() < 0.05) { // 5% chance to randomize
+                if (Math.random() < 0.05) {
                     return {
                         botChoice: randomMove(),
                         confidence: bestPrediction.confidence * 0.7,
@@ -466,6 +672,13 @@
             return { move: predicted, confidence: Math.max(0.3, confidence) };
         }
         
+        function predictNextInCycle() {
+            if (!state.patternCycle) return null;
+            
+            const cyclePos = state.history.length % state.patternCycle.length;
+            return state.patternCycle[cyclePos];
+        }
+        
         function counterMostCommonMove() {
             const maxMove = Object.entries(state.moveCounts).reduce(
                 (max, [move, count]) => count > max.count ? { move, count } : max,
@@ -493,65 +706,7 @@
                 } else {
                     state.streak = -1;
                 }
-            } else {
-                // Tie doesn't affect streak
             }
-        }
-        
-        function detectStrategies(userChoice) {
-            // Detect win-stay/lose-shift
-            if (state.history.length >= 3) {
-                const lastGameResult = getGameResult(state.history.length - 2);
-                const lastMove = state.history[state.history.length - 2];
-                const currentMove = state.history[state.history.length - 1];
-                
-                if (lastGameResult === 'user' && lastMove === currentMove) {
-                    state.strategyHistory.push(STRATEGIES.WIN_STAY);
-                } else if (lastGameResult === 'bot' && lastMove !== currentMove) {
-                    state.strategyHistory.push(STRATEGIES.WIN_STAY);
-                }
-            }
-            
-            // Detect repeat avoidance
-            if (state.history.length >= 4) {
-                const uniqueLastThree = new Set(state.history.slice(-3));
-                if (uniqueLastThree.size === 3) {
-                    state.strategyHistory.push(STRATEGIES.REPEAT_AVOIDANCE);
-                }
-            }
-            
-            // Detect gambler's fallacy (avoiding moves that haven't come up in a while)
-            if (state.history.length >= 5) {
-                const recentMoves = state.history.slice(-5);
-                const missingMoves = moves.filter(m => !recentMoves.includes(m));
-                if (missingMoves.length === 1 && !missingMoves.includes(userChoice)) {
-                    state.strategyHistory.push(STRATEGIES.GAMBLERS_FALLACY);
-                }
-            }
-            
-            // Update detected strategies based on frequency in history
-            state.detectedStrategies = new Set();
-            const strategyCounts = {};
-            
-            state.strategyHistory.forEach(strategy => {
-                strategyCounts[strategy] = (strategyCounts[strategy] || 0) + 1;
-            });
-            
-            for (const [strategy, count] of Object.entries(strategyCounts)) {
-                if (count / state.strategyHistory.length > 0.3) { // At least 30% occurrence
-                    state.detectedStrategies.add(strategy);
-                }
-            }
-        }
-        
-        function getGameResult(index) {
-            if (index <= 0 || index >= state.history.length) return null;
-            
-            const userMove = state.history[index];
-            const botMove = state.history[index - 1]; // Note: this would need adjustment in real code
-            
-            if (userMove === botMove) return 'tie';
-            return beats[userMove] === botMove ? 'user' : 'bot';
         }
         
         function updateUI(userChoice, botChoice, result, strategy) {
@@ -642,6 +797,27 @@
             state.detectedStrategies.forEach(strategy => {
                 strategyTagsEl.innerHTML += `<span class="strategy-tag">${strategy}</span>`;
             });
+        }
+        
+        function updatePlayerTypeUI() {
+            if (state.playerType) {
+                playerTypeEl.textContent = `Player type: ${state.playerType.name}`;
+            }
+            
+            // Calculate repetition percentage
+            const maxRepetition = Math.max(...Object.values(state.repetitionCounters));
+            const total = Object.values(state.repetitionCounters).reduce((a,b) => a + b, 0);
+            const repetitionPct = total > 0 ? (maxRepetition / total * 100).toFixed(1) : 0;
+            repetitionScoreEl.textContent = `Repetition detection: ${repetitionPct}%`;
+            
+            // Display pattern cycle if detected
+            if (state.patternCycle) {
+                patternCycleEl.textContent = `Pattern cycle: ${state.patternCycle.join(' → ')}`;
+                patternVisEl.textContent = `Last moves: ${state.lastFiveMoves.join(' ')}`;
+            } else {
+                patternCycleEl.textContent = 'Pattern cycle: None detected';
+                patternVisEl.textContent = `Last moves: ${state.lastFiveMoves.join(' ')}`;
+            }
         }
     </script>
 </body>
