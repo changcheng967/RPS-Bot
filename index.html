@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unbeatable RPS Bot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .choices {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+        }
+        .choice {
+            font-size: 50px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        .choice:hover {
+            background-color: #f0f0f0;
+            transform: scale(1.1);
+        }
+        #result {
+            font-size: 24px;
+            margin: 20px 0;
+            min-height: 100px;
+        }
+        #stats {
+            margin-top: 30px;
+            font-size: 18px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Rock Paper Scissors</h1>
+    <p>Try to beat our AI (spoiler: you can't)</p>
+    
+    <div class="choices">
+        <div class="choice" id="rock">✊</div>
+        <div class="choice" id="paper">✋</div>
+        <div class="choice" id="scissors">✌️</div>
+    </div>
+    
+    <div id="result"></div>
+    
+    <div id="stats">
+        <p>Games played: <span id="games-played">0</span></p>
+        <p>Your wins: <span id="user-wins">0</span></p>
+        <p>Bot wins: <span id="bot-wins">0</span></p>
+        <p>Win rate: <span id="win-rate">0</span>%</p>
+    </div>
+    
+    <script>
+        let gamesPlayed = 0;
+        let userWins = 0;
+        let botWins = 0;
+        
+        const choices = {
+            '✊': '✌️',
+            '✋': '✊',
+            '✌️': '✋'
+        };
+        
+        const choiceNames = {
+            '✊': 'Rock',
+            '✋': 'Paper',
+            '✌️': 'Scissors'
+        };
+        
+        document.querySelectorAll('.choice').forEach(choice => {
+            choice.addEventListener('click', (e) => {
+                const userChoice = e.target.textContent;
+                playGame(userChoice);
+            });
+        });
+        
+        function playGame(userChoice) {
+            gamesPlayed++;
+            
+            // The "cheat" - we know the user's choice before selecting ours
+            const botChoice = getWinningMove(userChoice);
+            
+            // Determine winner
+            let resultText;
+            if (choices[userChoice] === botChoice) {
+                resultText = `You chose ${choiceNames[userChoice]}, bot chose ${choiceNames[botChoice]}. You win!`;
+                userWins++;
+            } else if (choices[botChoice] === userChoice) {
+                resultText = `You chose ${choiceNames[userChoice]}, bot chose ${choiceNames[botChoice]}. Bot wins!`;
+                botWins++;
+            } else {
+                resultText = `You chose ${choiceNames[userChoice]}, bot chose ${choiceNames[botChoice]}. It's a tie!`;
+            }
+            
+            // Update UI
+            document.getElementById('result').textContent = resultText;
+            document.getElementById('games-played').textContent = gamesPlayed;
+            document.getElementById('user-wins').textContent = userWins;
+            document.getElementById('bot-wins').textContent = botWins;
+            document.getElementById('win-rate').textContent = ((botWins / gamesPlayed) * 100).toFixed(2);
+        }
+        
+        function getWinningMove(userChoice) {
+            // Return the move that beats the user's choice
+            // This is the "cheat" that gives us 100% win rate when we win
+            // We'll make it win 99% of the time by occasionally choosing to tie instead
+            
+            if (Math.random() < 0.99) { // 99% chance to win
+                // Return what beats the user's choice
+                for (const [key, value] of Object.entries(choices)) {
+                    if (value === userChoice) {
+                        return key;
+                    }
+                }
+            } else { // 1% chance to tie
+                return userChoice;
+            }
+        }
+    </script>
+</body>
+</html>
