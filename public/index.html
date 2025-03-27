@@ -1,45 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Server-Learning RPS AI</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        /* Add similar styles from previous example */
-    </style>
+  <title>RPS AI</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+    .choices { margin: 20px; }
+    button { padding: 15px 25px; font-size: 18px; margin: 0 10px; cursor: pointer; }
+    #result { font-size: 24px; margin: 20px 0; min-height: 30px; }
+  </style>
 </head>
 <body>
-    <div id="app">
-        <h1>Server-Learning Rock-Paper-Scissors</h1>
-        
-        <div v-if="!userId">
-            <button @click="createUser">Start Playing</button>
-        </div>
-        
-        <div v-else>
-            <div class="game-area">
-                <!-- Game UI similar to previous example -->
-            </div>
-            
-            <div class="stats">
-                <h3>Your Stats</h3>
-                <p>Games: {{ userStats.gamesPlayed }} | 
-                   Wins: {{ userStats.wins }} | 
-                   Losses: {{ userStats.losses }} | 
-                   Ties: {{ userStats.ties }}</p>
-                <p>Win Rate: {{ winRate }}%</p>
-                
-                <h3>Global Stats</h3>
-                <p>Total Games: {{ globalStats.totalGames }}</p>
-                <p>AI Win Rate: {{ globalWinRate }}%</p>
-                <p>Active Users: {{ globalStats.activeUsers }}</p>
-                
-                <canvas id="historyChart"></canvas>
-            </div>
-        </div>
-    </div>
+  <h1>Rock Paper Scissors AI</h1>
+  <div class="choices">
+    <button onclick="play('rock')">✊ Rock</button>
+    <button onclick="play('paper')">✋ Paper</button>
+    <button onclick="play('scissors')">✌️ Scissors</button>
+  </div>
+  <div id="result"></div>
+  <div id="stats"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.31"></script>
-    <script src="app.js"></script>
+  <script>
+    let userId = 'user_' + Math.random().toString(36).substr(2, 9);
+    let history = [];
+
+    // Initialize user
+    fetch('/api/user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+
+    function play(humanMove) {
+      fetch('/api/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, humanMove, history })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const outcome = data.outcome;
+        document.getElementById('result').innerHTML = `
+          You: ${humanMove} | AI: ${data.aiMove} | 
+          ${outcome === 'tie' ? 'Tie!' : outcome === 'human' ? 'You win!' : 'AI wins!'}
+        `;
+
+        // Save game
+        history.push({humanMove, aiMove: data.aiMove});
+        fetch('/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, humanMove, aiMove: data.aiMove, outcome, history })
+        });
+      });
+    }
+  </script>
 </body>
 </html>
