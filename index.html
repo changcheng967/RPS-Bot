@@ -1,9 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultra RPS AI | WASM Powered</title>
+    <title>Ultra RPS AI</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -12,17 +10,11 @@
             padding: 20px;
             text-align: center;
         }
-        #loading {
-            color: #3498db;
-            font-weight: bold;
-            margin: 20px 0;
-        }
         .choice {
             font-size: 60px;
             cursor: pointer;
-            margin: 10px;
+            margin: 15px;
             padding: 15px;
-            border-radius: 10px;
             display: inline-block;
             transition: transform 0.1s;
         }
@@ -49,9 +41,7 @@
 </head>
 <body>
     <h1>Ultra RPS AI</h1>
-    <p>WebAssembly-Powered Pattern Recognition</p>
-    
-    <div id="loading">Loading AI engine (WebAssembly)...</div>
+    <p id="status">Loading AI engine...</p>
     
     <div id="game" style="display:none">
         <div class="choice" data-move="0">✊</div>
@@ -71,100 +61,122 @@
         // Game state
         const game = {
             wasmModule: null,
-            worker: null,
+            history: [],
             games: 0,
             wins: 0,
-            aiWins: 0
+            aiWins: 0,
+            moves: ['✊ Rock', '✋ Paper', '✌️ Scissors']
         };
 
-        // Load WebAssembly module
-        async function initWasm() {
+        // Load WebAssembly
+        async function loadWasm() {
             try {
-                // Load compiled WASM
-                const response = await fetch('rps_ai.wasm');
-                const bytes = await response.arrayBuffer();
-                const module = await WebAssembly.instantiate(bytes);
+                document.getElementById('status').textContent = "Loading WASM...";
                 
-                game.wasmModule = module.instance.exports;
-                document.getElementById('loading').textContent = "AI Ready!";
-                document.getElementById('game').style.display = 'block';
+                // Load WASM binary directly
+                const wasmResponse = await fetch('rps_ai.wasm');
+                const wasmBytes = await wasmResponse.arrayBuffer();
                 
-                // Start web worker for heavy calculations
-                game.worker = new Worker('ai-worker.js');
-                game.worker.onmessage = handleWorkerResponse;
-                
-                // Set up event listeners
-                document.querySelectorAll('.choice').forEach(choice => {
-                    choice.addEventListener('click', (e) => {
-                        const move = parseInt(e.target.getAttribute('data-move'));
-                        playMove(move);
-                    });
+                // Initialize module
+                game.wasmModule = await WebAssembly.instantiate(wasmBytes, {
+                    env: {
+                        emscripten_memcpy_big: (dest, src, count) => {
+                            new Uint8Array(game.wasmModule.instance.exports.memory.buffer, dest, count)
+                                .set(new Uint8Array(game.wasmModule.instance.exports.memory.buffer, src, count));
+                        }
+                    }
                 });
                 
+                document.getElementById('status').textContent = "AI Ready!";
+                document.getElementById('game').style.display = 'block';
+                
             } catch (err) {
-                document.getElementById('loading').textContent = 
-                    "Error loading AI. Using fallback JS version.";
+                document.getElementById('status').textContent = "Using JavaScript fallback";
                 console.error("WASM load error:", err);
                 initFallback();
             }
         }
 
-        function playMove(userMove) {
-            game.games++;
-            
-            // Send to Web Worker for processing
-            game.worker.postMessage({
-                type: 'calculate',
-                userMove: userMove,
-                history: game.history || []
-            });
-            
-            // Store move temporarily (will be confirmed when worker responds)
-            game.lastUserMove = userMove;
-        }
-
-        function handleWorkerResponse(e) {
-            const { aiMove, analysis } = e.data;
-            const userMove = game.lastUserMove;
-            
-            // Determine winner
-            if (userMove === aiMove) {
-                updateResult(`${moveToEmoji(userMove)} vs ${moveToEmoji(aiMove)} - Tie!`);
-            } else if ((userMove + 1) % 3 === aiMove) {
-                game.wins++;
-                updateResult(`${moveToEmoji(userMove)} vs ${moveToEmoji(aiMove)} - You win!`);
-            } else {
-                game.aiWins++;
-                updateResult(`${moveToEmoji(userMove)} vs ${moveToEmoji(aiMove)} - AI wins!`);
-            }
-            
-            // Update stats
-            document.getElementById('games').textContent = game.games;
-            document.getElementById('wins').textContent = game.wins;
-            document.getElementById('aiWins').textContent = game.aiWins;
-            
-            // Store history (limited to 100 moves)
-            if (!game.history) game.history = [];
-            game.history.push(userMove);
-            if (game.history.length > 100) game.history.shift();
-        }
-
-        function moveToEmoji(move) {
-            return ['✊', '✋', '✌️'][move];
-        }
-
-        function updateResult(text) {
-            document.getElementById('result').textContent = text;
-        }
-
-        // Fallback to JS if WASM fails
+        // JavaScript fallback
         function initFallback() {
+            game.wasmModule = {
+                _calculateBestMove: (move, historyPtr, length) => {
+                    // Simple anti-spam logic
+                    const history = Array.from({length}, (_, i) => 
+                        new Int32Array(game.wasmModule.instance.exports.memory.buffer, historyPtr, length)[i]);
+                    
+                    if (history.length >= 2 && 
+                        history[history.length-1] === move && 
+                        history[history.length-2] === move) {
+                        return (move + 1) % 3;
+                    }
+                    
+                    // Fallback random move
+                    return Math.floor(Math.random() * 3);
+                }
+            };
             document.getElementById('game').style.display = 'block';
-            // ... (include the JavaScript version from earlier)
         }
 
-        // Start the AI
-        initWasm();
+        // Play game
+        function play(move) {
+            game.games++;
+            game.history.push(move);
+            
+            // Prepare history for WASM
+            const historyArray = new Int32Array(game.history);
+            const historyBuffer = game.wasmModule.instance.exports.malloc(historyArray.length * 4);
+            new Int32Array(game.wasmModule.instance.exports.memory.buffer, historyBuffer, historyArray.length)
+                .set(historyArray);
+            
+            // Get AI move
+            const aiMove = game.wasmModule.instance.exports._calculateBestMove(
+                move,
+                historyBuffer,
+                game.history.length
+            );
+            
+            // Free memory
+            game.wasmModule.instance.exports.free(historyBuffer);
+            
+            // Update UI
+            updateResult(move, aiMove);
+            
+            // Keep history manageable
+            if (game.history.length > 50) game.history.shift();
+        }
+
+        function updateResult(playerMove, aiMove) {
+            const resultEl = document.getElementById('result');
+            const winsEl = document.getElementById('wins');
+            const aiWinsEl = document.getElementById('aiWins');
+            const gamesEl = document.getElementById('games');
+            
+            gamesEl.textContent = game.games;
+            
+            if (playerMove === aiMove) {
+                resultEl.innerHTML = `${game.moves[playerMove]} vs ${game.moves[aiMove]}<br>Tie!`;
+            } 
+            else if ((playerMove + 1) % 3 === aiMove) {
+                game.wins++;
+                winsEl.textContent = game.wins;
+                resultEl.innerHTML = `${game.moves[playerMove]} vs ${game.moves[aiMove]}<br>You win!`;
+            } 
+            else {
+                game.aiWins++;
+                aiWinsEl.textContent = game.aiWins;
+                resultEl.innerHTML = `${game.moves[playerMove]} vs ${game.moves[aiMove]}<br>AI wins!`;
+            }
+        }
+
+        // Initialize
+        document.querySelectorAll('.choice').forEach(choice => {
+            choice.addEventListener('click', (e) => {
+                play(parseInt(e.target.getAttribute('data-move')));
+            });
+        });
+
+        loadWasm();
     </script>
 </body>
 </html>
