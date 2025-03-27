@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RPS AI - Local Learning</title>
+    <title>RPS AI - Advanced Local Learning</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 500px;
+            max-width: 600px;
             margin: 0 auto;
             padding: 20px;
             text-align: center;
@@ -21,6 +21,10 @@
             border-radius: 50%;
             cursor: pointer;
             margin: 10px;
+            transition: transform 0.2s;
+        }
+        .choices button:hover {
+            transform: scale(1.1);
         }
         #result {
             font-size: 24px;
@@ -38,18 +42,48 @@
             background: #f0f0f0;
             border-radius: 5px;
         }
-        .win { color: green; }
-        .lose { color: red; }
-        .draw { color: orange; }
-        #training-info {
+        .win { color: #2ecc71; }
+        .lose { color: #e74c3c; }
+        .draw { color: #f39c12; }
+        #training-panel {
             margin-top: 20px;
-            font-size: 14px;
-            color: #666;
+            padding: 15px;
+            background: #e8f4f8;
+            border-radius: 5px;
+        }
+        #training-progress {
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        #training-bar {
+            height: 100%;
+            background: #3498db;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .contributor-badge {
+            display: inline-block;
+            background: #2ecc71;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        #device-id {
+            font-family: monospace;
+            background: #f0f0f0;
+            padding: 2px 5px;
+            border-radius: 3px;
         }
     </style>
 </head>
 <body>
     <h1>Rock Paper Scissors AI</h1>
+    <p>Training on <span id="device-id">this device</span></p>
     
     <div class="choices">
         <button id="rock">✊</button>
@@ -72,8 +106,14 @@
         </div>
     </div>
     
-    <div id="training-info">
-        <p>Training Cycles: <span id="training-cycles">0</span></p>
+    <div id="training-panel">
+        <h3>Training Progress</h3>
+        <div id="training-progress">
+            <div id="training-bar"></div>
+        </div>
+        <p>Cycles: <span id="training-cycles">0</span> | Accuracy: <span id="training-accuracy">0%</span></p>
+        <p>Data Points: <span id="data-points">0</span> | Last Trained: <span id="last-trained">Never</span></p>
+        <p>Contributor Level: <span id="contributor-level">Novice</span><span id="contributor-badge" class="contributor-badge" style="display:none">⭐</span></p>
     </div>
 
     <script>
@@ -84,43 +124,71 @@
             draws: 0,
             model: null,
             trainingData: [],
-            trainingCycles: 0
+            trainingCycles: 0,
+            trainingSamples: 0,
+            deviceId: null,
+            lastTrained: null,
+            contributorLevel: 0
         };
+        
+        // Generate a persistent device ID
+        function getDeviceId() {
+            let id = localStorage.getItem('rps-device-id');
+            if (!id) {
+                id = 'd-' + Math.random().toString(36).substr(2, 8);
+                localStorage.setItem('rps-device-id', id);
+            }
+            return id;
+        }
         
         // Initialize game
         async function init() {
+            // Get device ID
+            game.deviceId = getDeviceId();
+            document.getElementById('device-id').textContent = game.deviceId;
+            
             // Create model
             game.model = createModel();
             
-            // Load saved model if exists
-            await loadModel();
+            // Load saved data
+            await loadAllData();
             
             // Setup event listeners
-            document.getElementById('rock').onclick = () => playRound('rock');
-            document.getElementById('paper').onclick = () => playRound('paper');
-            document.getElementById('scissors').onclick = () => playRound('scissors');
+            setupControls();
             
-            // Load game stats
-            loadGameStats();
+            // Update UI
+            updateUI();
         }
         
         // Create neural network
         function createModel() {
             const model = tf.sequential();
             model.add(tf.layers.dense({
-                units: 8,
+                units: 12,
                 activation: 'relu',
-                inputShape: [4] // Last move + context
+                inputShape: [6] // Last 2 moves + context
+            }));
+            model.add(tf.layers.dense({
+                units: 8,
+                activation: 'relu'
             }));
             model.add(tf.layers.dense({
                 units: 3, // rock, paper, scissors
                 activation: 'softmax'
             }));
             model.compile({
-                optimizer: 'adam',
-                loss: 'categoricalCrossentropy'
+                optimizer: tf.train.adam(0.001),
+                loss: 'categoricalCrossentropy',
+                metrics: ['accuracy']
             });
             return model;
+        }
+        
+        // Setup game controls
+        function setupControls() {
+            document.getElementById('rock').onclick = () => playRound('rock');
+            document.getElementById('paper').onclick = () => playRound('paper');
+            document.getElementById('scissors').onclick = () => playRound('scissors');
         }
         
         // Play a round
@@ -135,15 +203,11 @@
             updateGameState(playerMove, aiMove, result);
             
             // Add to training data
-            game.trainingData.push({
-                input: prepareInput(playerMove),
-                output: oneHotEncode(getCounterMove(playerMove))
-            });
+            addTrainingData(playerMove, aiMove, result);
             
             // Train periodically
             if (game.trainingData.length >= 5) {
                 await trainModel();
-                game.trainingData = []; // Clear training data
             }
         }
         
@@ -166,8 +230,8 @@
                 tensor.dispose();
                 
                 // Choose move (with some randomness)
-                if (Math.random() < 0.1) {
-                    return moves[Math.floor(Math.random() * 3)]; // 10% random exploration
+                if (Math.random() < 0.15) {
+                    return moves[Math.floor(Math.random() * 3)]; // 15% random exploration
                 }
                 
                 return moves[prediction[0].indexOf(Math.max(...prediction[0]))];
@@ -177,15 +241,22 @@
             }
         }
         
-        // Prepare input for the neural network
+        // Prepare input for prediction
         function prepareInput(playerMove) {
-            // Simple input: player move and win ratio
-            return [
-                playerMove === 'rock' ? 1 : 0,
-                playerMove === 'paper' ? 1 : 0,
-                playerMove === 'scissors' ? 1 : 0,
-                (game.userWins / (game.userWins + game.userLosses || 1)) // Win ratio
-            ];
+            // Use last 2 moves as context
+            const history = game.trainingData.slice(-2);
+            const input = [];
+            
+            // Add history (pad with zeros if not enough history)
+            history.forEach(item => {
+                input.push(...oneHotEncode(item.playerMove));
+                input.push(...oneHotEncode(item.aiMove));
+            });
+            
+            // Pad if not enough history
+            while (input.length < 6) input.push(0);
+            
+            return input;
         }
         
         // One-hot encode moves
@@ -206,89 +277,180 @@
             return 'lose';
         }
         
-        // Get counter move
-        function getCounterMove(move) {
-            return {
-                rock: 'paper',
-                paper: 'scissors',
-                scissors: 'rock'
-            }[move];
-        }
-        
-        // Update game state and UI
+        // Update game state
         function updateGameState(playerMove, aiMove, result) {
             if (result === 'win') game.userWins++;
             if (result === 'lose') game.userLosses++;
             if (result === 'draw') game.draws++;
             
-            // Update UI
-            document.getElementById('user-wins').textContent = game.userWins;
-            document.getElementById('user-losses').textContent = game.userLosses;
+            // Update contributor level
+            updateContributorLevel();
             
-            const totalGames = game.userWins + game.userLosses;
-            const winRate = totalGames > 0 ? Math.round((game.userLosses / totalGames) * 100) : 0;
-            document.getElementById('ai-win-rate').textContent = `${winRate}%`;
-            document.getElementById('total-games').textContent = game.userWins + game.userLosses + game.draws;
-            
-            // Show result
-            document.getElementById('result').innerHTML = `
-                You played <strong>${playerMove}</strong><br>
-                AI played <strong>${aiMove}</strong><br>
-                <span class="${result}">${result.toUpperCase()}!</span>
-            `;
-            
-            // Save game stats
+            // Save game state
             saveGameStats();
+            
+            // Update UI
+            updateUI(playerMove, aiMove, result);
+        }
+        
+        // Add training data
+        function addTrainingData(playerMove, aiMove, result) {
+            game.trainingData.push({
+                playerMove,
+                aiMove,
+                result,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Limit to 100 most recent games
+            if (game.trainingData.length > 100) {
+                game.trainingData.shift();
+            }
+            
+            // Save training data
+            saveTrainingData();
         }
         
         // Train the model
         async function trainModel() {
+            if (game.trainingData.length < 3) return;
+            
             try {
                 // Prepare training data
-                const inputs = game.trainingData.map(item => item.input);
-                const labels = game.trainingData.map(item => item.output);
+                const inputs = [];
+                const labels = [];
+                
+                // Create training examples from history
+                for (let i = 2; i < game.trainingData.length; i++) {
+                    const prev1 = game.trainingData[i-1];
+                    const prev2 = game.trainingData[i-2];
+                    const current = game.trainingData[i];
+                    
+                    // Input: previous moves + context
+                    inputs.push([
+                        ...oneHotEncode(prev1.playerMove),
+                        ...oneHotEncode(prev1.aiMove),
+                        ...oneHotEncode(prev2.playerMove),
+                        ...oneHotEncode(prev2.aiMove)
+                    ]);
+                    
+                    // Label: what would have beaten the player's move
+                    labels.push(oneHotEncode(getCounterMove(current.playerMove)));
+                }
+                
+                // Show training started
+                document.getElementById('training-bar').style.width = '10%';
                 
                 // Train
-                await game.model.fit(
+                const history = await game.model.fit(
                     tf.tensor2d(inputs),
                     tf.tensor2d(labels),
                     {
-                        epochs: 3,
-                        batchSize: 2,
-                        verbose: 0
+                        epochs: 5,
+                        batchSize: 4,
+                        callbacks: {
+                            onEpochEnd: async (epoch, logs) => {
+                                // Update progress bar
+                                const progress = 10 + ((epoch + 1) / 5 * 90);
+                                document.getElementById('training-bar').style.width = `${progress}%`;
+                                
+                                // Update accuracy
+                                document.getElementById('training-accuracy').textContent = 
+                                    `${Math.round(logs.acc * 100)}%`;
+                            }
+                        }
                     }
                 );
                 
+                // Update training stats
                 game.trainingCycles++;
-                document.getElementById('training-cycles').textContent = game.trainingCycles;
+                game.trainingSamples += inputs.length;
+                game.lastTrained = new Date();
                 
-                // Save model
-                await saveModel();
+                // Update contributor level
+                updateContributorLevel();
+                
+                // Save everything
+                await saveAllData();
+                
+                // Update UI
+                updateTrainingUI(history);
                 
             } catch (error) {
                 console.error("Training error:", error);
+                document.getElementById('training-bar').style.width = '0%';
             }
+        }
+        
+        // Update contributor level
+        function updateContributorLevel() {
+            const totalGames = game.userWins + game.userLosses + game.draws;
+            game.contributorLevel = Math.floor(totalGames / 20); // Level up every 20 games
+            
+            const levels = ['Novice', 'Apprentice', 'Regular', 'Expert', 'Master'];
+            const levelName = levels[Math.min(game.contributorLevel, levels.length - 1)];
+            
+            document.getElementById('contributor-level').textContent = levelName;
+            
+            // Show badge after level 1
+            const badge = document.getElementById('contributor-badge');
+            if (game.contributorLevel > 0) {
+                badge.style.display = 'inline-block';
+                badge.textContent = '⭐'.repeat(Math.min(game.contributorLevel, 5));
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        
+        // Update UI
+        function updateUI(playerMove, aiMove, result) {
+            // Update stats
+            document.getElementById('user-wins').textContent = game.userWins;
+            document.getElementById('user-losses').textContent = game.userLosses;
+            
+            const totalGames = game.userWins + game.userLosses || 1;
+            const winRate = Math.round((game.userLosses / totalGames) * 100);
+            document.getElementById('ai-win-rate').textContent = `${winRate}%`;
+            document.getElementById('total-games').textContent = game.userWins + game.userLosses + game.draws;
+            
+            // Update result display
+            if (playerMove && aiMove) {
+                document.getElementById('result').innerHTML = `
+                    You played <strong>${playerMove}</strong><br>
+                    AI played <strong>${aiMove}</strong><br>
+                    <span class="${result}">${result.toUpperCase()}!</span>
+                `;
+            }
+            
+            // Update data points
+            document.getElementById('data-points').textContent = game.trainingData.length;
+        }
+        
+        // Update training UI
+        function updateTrainingUI(history) {
+            document.getElementById('training-cycles').textContent = game.trainingCycles;
+            document.getElementById('last-trained').textContent = 
+                game.lastTrained ? game.lastTrained.toLocaleTimeString() : 'Never';
+            
+            // Get final accuracy
+            const accuracy = history.history.acc[history.history.acc.length - 1];
+            document.getElementById('training-accuracy').textContent = 
+                `${Math.round(accuracy * 100)}%`;
+        }
+        
+        // Save all data
+        async function saveAllData() {
+            await saveModel();
+            saveGameStats();
+            saveTrainingData();
         }
         
         // Save model to IndexedDB
         async function saveModel() {
             try {
-                await game.model.save('localstorage://rps-ai-model');
+                await game.model.save('indexeddb://rps-ai-model');
             } catch (error) {
                 console.error("Error saving model:", error);
-            }
-        }
-        
-        // Load model from IndexedDB
-        async function loadModel() {
-            try {
-                const model = await tf.loadLayersModel('localstorage://rps-ai-model');
-                if (model) {
-                    game.model = model;
-                    console.log("Model loaded from local storage");
-                }
-            } catch (error) {
-                console.log("No saved model found, starting fresh");
             }
         }
         
@@ -298,8 +460,38 @@
                 wins: game.userWins,
                 losses: game.userLosses,
                 draws: game.draws,
-                trainingCycles: game.trainingCycles
+                trainingCycles: game.trainingCycles,
+                trainingSamples: game.trainingSamples,
+                lastTrained: game.lastTrained,
+                contributorLevel: game.contributorLevel
             }));
+        }
+        
+        // Save training data to localStorage
+        function saveTrainingData() {
+            // Only save the most recent 50 games for training
+            const recentData = game.trainingData.slice(-50);
+            localStorage.setItem('rps-training-data', JSON.stringify(recentData));
+        }
+        
+        // Load all data
+        async function loadAllData() {
+            await loadModel();
+            loadGameStats();
+            loadTrainingData();
+        }
+        
+        // Load model from IndexedDB
+        async function loadModel() {
+            try {
+                const models = await tf.io.listModels();
+                if (models['indexeddb://rps-ai-model']) {
+                    game.model = await tf.loadLayersModel('indexeddb://rps-ai-model');
+                    console.log("Model loaded from IndexedDB");
+                }
+            } catch (error) {
+                console.log("No saved model found, starting fresh");
+            }
         }
         
         // Load game stats from localStorage
@@ -311,16 +503,17 @@
                 game.userLosses = stats.losses || 0;
                 game.draws = stats.draws || 0;
                 game.trainingCycles = stats.trainingCycles || 0;
-                
-                // Update UI
-                document.getElementById('user-wins').textContent = game.userWins;
-                document.getElementById('user-losses').textContent = game.userLosses;
-                document.getElementById('training-cycles').textContent = game.trainingCycles;
-                
-                const totalGames = game.userWins + game.userLosses;
-                const winRate = totalGames > 0 ? Math.round((game.userLosses / totalGames) * 100) : 0;
-                document.getElementById('ai-win-rate').textContent = `${winRate}%`;
-                document.getElementById('total-games').textContent = game.userWins + game.userLosses + game.draws;
+                game.trainingSamples = stats.trainingSamples || 0;
+                game.lastTrained = stats.lastTrained ? new Date(stats.lastTrained) : null;
+                game.contributorLevel = stats.contributorLevel || 0;
+            }
+        }
+        
+        // Load training data from localStorage
+        function loadTrainingData() {
+            const saved = localStorage.getItem('rps-training-data');
+            if (saved) {
+                game.trainingData = JSON.parse(saved) || [];
             }
         }
         
