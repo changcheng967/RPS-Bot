@@ -3,7 +3,11 @@
   "builds": [
     {
       "src": "app.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": { 
+        "maxLambdaSize": "15mb",
+        "runtime": "python3.9"
+      }
     },
     {
       "src": "templates/*",
@@ -16,14 +20,12 @@
       "dest": "/templates/index.html"
     },
     {
-      "src": "/(.*)",
-      "dest": "app.py"
-    }
-  ],
-  "rewrites": [
+      "src": "/api/(.*)",
+      "dest": "/app.py"
+    },
     {
-      "source": "/static/(.*)",
-      "destination": "/templates/$1"
+      "src": "/(.*)",
+      "dest": "/templates/index.html"
     }
   ]
 }
