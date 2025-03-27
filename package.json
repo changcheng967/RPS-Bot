@@ -1,7 +1,7 @@
 {
   "name": "rps-ai-server",
   "version": "1.0.0",
-  "description": "Self-learning Rock-Paper-Scissors AI with server-wide statistics",
+  "description": "Self-learning Rock-Paper-Scissors AI",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -15,18 +15,12 @@
     "@tensorflow/tfjs-node": "^4.10.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "mongoose": "^8.0.3",
     "path": "^0.12.7"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
-  },
-  "keywords": [
-    "AI",
-    "Rock Paper Scissors",
-    "Machine Learning",
-    "TensorFlow.js"
-  ],
-  "license": "MIT"
+  }
 }
