@@ -1,38 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Self-Learning RPS AI</title>
+    <title>Deep Learning RPS AI</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             text-align: center;
         }
-        .choices {
-            margin: 30px 0;
+        .game-area {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
         }
-        button {
-            padding: 15px 25px;
-            font-size: 18px;
-            margin: 0 10px;
+        .choices {
+            width: 45%;
+        }
+        button.choice {
+            padding: 20px;
+            font-size: 24px;
+            margin: 10px;
             cursor: pointer;
-            background-color: #4CAF50;
+            background-color: #4285F4;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            transition: all 0.2s;
         }
-        button:hover {
-            background-color: #45a049;
+        button.choice:hover {
+            transform: scale(1.1);
+            background-color: #3367D6;
         }
         #result {
             font-size: 24px;
-            margin: 20px 0;
-            min-height: 30px;
+            margin: 30px 0;
+            min-height: 40px;
         }
         #stats {
-            margin-top: 30px;
+            margin-top: 40px;
             text-align: left;
             border-top: 1px solid #ddd;
             padding-top: 20px;
@@ -41,47 +50,80 @@
             width: 100%;
             background-color: #f1f1f1;
             border-radius: 5px;
-            margin: 10px 0;
+            margin: 15px 0;
         }
         .progress-bar {
-            height: 20px;
+            height: 25px;
             border-radius: 5px;
-            background-color: #4CAF50;
+            background-color: #4285F4;
             text-align: center;
-            line-height: 20px;
+            line-height: 25px;
             color: white;
         }
+        #trainingStatus {
+            margin-top: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        #historyChart {
+            height: 300px;
+            margin-top: 30px;
+        }
+        .move-icon {
+            font-size: 40px;
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
 </head>
 <body>
-    <h1>Self-Learning Rock-Paper-Scissors</h1>
-    <p>Play against an AI that learns from your patterns</p>
+    <h1>Deep Learning Rock-Paper-Scissors</h1>
+    <p>Play against an AI that learns from every game</p>
     
-    <div class="choices">
-        <button id="rock">✊ Rock</button>
-        <button id="paper">✋ Paper</button>
-        <button id="scissors">✌️ Scissors</button>
+    <div class="game-area">
+        <div class="choices">
+            <h3>Your Move</h3>
+            <button id="rock" class="choice">✊</button>
+            <button id="paper" class="choice">✋</button>
+            <button id="scissors" class="choice">✌️</button>
+        </div>
+        
+        <div id="result">
+            <div id="humanMove" class="move-icon"></div>
+            <div id="vs">vs</div>
+            <div id="aiMove" class="move-icon"></div>
+            <div id="outcome"></div>
+        </div>
+        
+        <div class="choices">
+            <h3>AI Thinking</h3>
+            <div id="aiConfidence">
+                <div class="progress-container">
+                    <div id="rockProb" class="progress-bar" style="width: 33%">Rock: 33%</div>
+                </div>
+                <div class="progress-container">
+                    <div id="paperProb" class="progress-bar" style="width: 33%">Paper: 33%</div>
+                </div>
+                <div class="progress-container">
+                    <div id="scissorsProb" class="progress-bar" style="width: 33%">Scissors: 33%</div>
+                </div>
+            </div>
+        </div>
     </div>
     
-    <div id="result"></div>
+    <div id="trainingStatus">Initializing neural network...</div>
     
     <div id="stats">
-        <h3>AI Learning Progress</h3>
-        <p>Games played: <span id="gameCount">0</span></p>
+        <h3>Game Statistics</h3>
+        <p>Total games: <span id="gameCount">0</span> | 
+           AI wins: <span id="aiWins">0</span> | 
+           Your wins: <span id="humanWins">0</span> | 
+           Ties: <span id="ties">0</span></p>
         <p>AI Win Rate: <span id="winRate">0</span>%</p>
         
-        <p>Your most frequent moves:</p>
-        <div class="progress-container">
-            <div id="rockProgress" class="progress-bar" style="width: 33%">Rock: 33%</div>
-        </div>
-        <div class="progress-container">
-            <div id="paperProgress" class="progress-bar" style="width: 33%">Paper: 33%</div>
-        </div>
-        <div class="progress-container">
-            <div id="scissorsProgress" class="progress-bar" style="width: 33%">Scissors: 33%</div>
-        </div>
+        <canvas id="historyChart"></canvas>
     </div>
 
-    <script src="ai.js"></script>
+    <script src="deepLearningAI.js"></script>
 </body>
 </html>
