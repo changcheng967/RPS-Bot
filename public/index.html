@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server-Learning RPS AI</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Add similar styles from previous example */
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>Server-Learning Rock-Paper-Scissors</h1>
+        
+        <div v-if="!userId">
+            <button @click="createUser">Start Playing</button>
+        </div>
+        
+        <div v-else>
+            <div class="game-area">
+                <!-- Game UI similar to previous example -->
+            </div>
+            
+            <div class="stats">
+                <h3>Your Stats</h3>
+                <p>Games: {{ userStats.gamesPlayed }} | 
+                   Wins: {{ userStats.wins }} | 
+                   Losses: {{ userStats.losses }} | 
+                   Ties: {{ userStats.ties }}</p>
+                <p>Win Rate: {{ winRate }}%</p>
+                
+                <h3>Global Stats</h3>
+                <p>Total Games: {{ globalStats.totalGames }}</p>
+                <p>AI Win Rate: {{ globalWinRate }}%</p>
+                <p>Active Users: {{ globalStats.activeUsers }}</p>
+                
+                <canvas id="historyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.31"></script>
+    <script src="app.js"></script>
+</body>
+</html>
