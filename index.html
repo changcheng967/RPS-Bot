@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unbeatable RPS Bot</title>
+    <title>Advanced RPS Bot</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -37,19 +37,22 @@
             margin-top: 30px;
             font-size: 18px;
         }
-        .hidden {
-            display: none;
+        #pattern-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
-    <h1>Rock Paper Scissors</h1>
-    <p>Try to beat our AI (spoiler: you can't)</p>
+    <h1>Advanced RPS Bot</h1>
+    <p>Can you outsmart our pattern-recognition AI?</p>
     
     <div class="choices">
-        <div class="choice" id="rock">✊</div>
-        <div class="choice" id="paper">✋</div>
-        <div class="choice" id="scissors">✌️</div>
+        <div class="choice" data-choice="rock">✊</div>
+        <div class="choice" data-choice="paper">✋</div>
+        <div class="choice" data-choice="scissors">✌️</div>
     </div>
     
     <div id="result"></div>
@@ -58,74 +61,204 @@
         <p>Games played: <span id="games-played">0</span></p>
         <p>Your wins: <span id="user-wins">0</span></p>
         <p>Bot wins: <span id="bot-wins">0</span></p>
+        <p>Ties: <span id="ties">0</span></p>
         <p>Win rate: <span id="win-rate">0</span>%</p>
     </div>
     
+    <div id="pattern-info">
+        <p>Bot is analyzing your patterns...</p>
+    </div>
+    
     <script>
-        let gamesPlayed = 0;
-        let userWins = 0;
-        let botWins = 0;
-        
-        const choices = {
-            '✊': '✌️',
-            '✋': '✊',
-            '✌️': '✋'
+        // Game state
+        const state = {
+            gamesPlayed: 0,
+            userWins: 0,
+            botWins: 0,
+            ties: 0,
+            history: [],
+            moveCounts: { rock: 0, paper: 0, scissors: 0 },
+            transitionCounts: {
+                rock: { rock: 0, paper: 0, scissors: 0 },
+                paper: { rock: 0, paper: 0, scissors: 0 },
+                scissors: { rock: 0, paper: 0, scissors: 0 }
+            },
+            lastUserMove: null
+        };
+
+        // Move relationships
+        const moves = ['rock', 'paper', 'scissors'];
+        const beats = {
+            rock: 'scissors',
+            paper: 'rock',
+            scissors: 'paper'
         };
         
-        const choiceNames = {
-            '✊': 'Rock',
-            '✋': 'Paper',
-            '✌️': 'Scissors'
-        };
+        // DOM elements
+        const resultEl = document.getElementById('result');
+        const patternInfoEl = document.getElementById('pattern-info');
         
+        // Event listeners
         document.querySelectorAll('.choice').forEach(choice => {
             choice.addEventListener('click', (e) => {
-                const userChoice = e.target.textContent;
+                const userChoice = e.target.getAttribute('data-choice');
                 playGame(userChoice);
             });
         });
-        
+
         function playGame(userChoice) {
-            gamesPlayed++;
+            state.gamesPlayed++;
+            state.moveCounts[userChoice]++;
             
-            // The "cheat" - we know the user's choice before selecting ours
-            const botChoice = getWinningMove(userChoice);
+            // Update transition counts if we have a previous move
+            if (state.lastUserMove) {
+                state.transitionCounts[state.lastUserMove][userChoice]++;
+            }
+            state.lastUserMove = userChoice;
+            state.history.push(userChoice);
+            
+            // Bot makes its choice based on pattern recognition
+            const botChoice = getBotChoice();
             
             // Determine winner
-            let resultText;
-            if (choices[userChoice] === botChoice) {
-                resultText = `You chose ${choiceNames[userChoice]}, bot chose ${choiceNames[botChoice]}. You win!`;
-                userWins++;
-            } else if (choices[botChoice] === userChoice) {
-                resultText = `You chose ${choiceNames[userChoice]}, bot chose ${choiceNames[botChoice]}. Bot wins!`;
-                botWins++;
+            let result;
+            if (userChoice === botChoice) {
+                result = 'tie';
+                state.ties++;
+            } else if (beats[userChoice] === botChoice) {
+                result = 'user';
+                state.userWins++;
             } else {
-                resultText = `You chose ${choiceNames[userChoice]}, bot chose ${choiceNames[botChoice]}. It's a tie!`;
+                result = 'bot';
+                state.botWins++;
             }
             
             // Update UI
-            document.getElementById('result').textContent = resultText;
-            document.getElementById('games-played').textContent = gamesPlayed;
-            document.getElementById('user-wins').textContent = userWins;
-            document.getElementById('bot-wins').textContent = botWins;
-            document.getElementById('win-rate').textContent = ((botWins / gamesPlayed) * 100).toFixed(2);
+            updateUI(userChoice, botChoice, result);
         }
         
-        function getWinningMove(userChoice) {
-            // Return the move that beats the user's choice
-            // This is the "cheat" that gives us 100% win rate when we win
-            // We'll make it win 99% of the time by occasionally choosing to tie instead
-            
-            if (Math.random() < 0.99) { // 99% chance to win
-                // Return what beats the user's choice
-                for (const [key, value] of Object.entries(choices)) {
-                    if (value === userChoice) {
-                        return key;
-                    }
-                }
-            } else { // 1% chance to tie
-                return userChoice;
+        function getBotChoice() {
+            // Start with simple frequency analysis
+            if (state.gamesPlayed < 5) {
+                // Early game - use basic strategy
+                return counterMostCommonMove();
             }
+            
+            // Check for recent patterns (last 3 moves)
+            if (state.history.length >= 3) {
+                const lastTwo = state.history.slice(-2);
+                const predicted = predictNextMove(lastTwo[0], lastTwo[1]);
+                
+                if (predicted && Math.random() < 0.7) { // 70% confidence
+                    return beats[predicted];
+                }
+            }
+            
+            // Fallback to countering the most common move
+            return counterMostCommonMove();
+        }
+        
+        function counterMostCommonMove() {
+            // Find user's most common move and counter it
+            const maxMove = Object.entries(state.moveCounts).reduce(
+                (max, [move, count]) => count > max.count ? { move, count } : max,
+                { move: null, count: -1 }
+            ).move;
+            
+            return maxMove ? beats[maxMove] : randomMove();
+        }
+        
+        function predictNextMove(firstMove, secondMove) {
+            // Use Markov chain to predict next move based on transitions
+            const transitions = state.transitionCounts[secondMove];
+            const total = Object.values(transitions).reduce((a, b) => a + b, 0);
+            
+            if (total === 0) return null;
+            
+            // Find most likely next move
+            let maxCount = -1;
+            let predicted = null;
+            
+            for (const [move, count] of Object.entries(transitions)) {
+                if (count > maxCount) {
+                    maxCount = count;
+                    predicted = move;
+                }
+            }
+            
+            // Only predict if we have enough data
+            return maxCount / total > 0.6 ? predicted : null;
+        }
+        
+        function randomMove() {
+            return moves[Math.floor(Math.random() * moves.length)];
+        }
+        
+        function updateUI(userChoice, botChoice, result) {
+            // Update result display
+            const choiceNames = {
+                rock: '✊ Rock',
+                paper: '✋ Paper',
+                scissors: '✌️ Scissors'
+            };
+            
+            let resultText = `You chose ${choiceNames[userChoice]}, bot chose ${choiceNames[botChoice]}. `;
+            
+            switch (result) {
+                case 'user':
+                    resultText += 'You win!';
+                    break;
+                case 'bot':
+                    resultText += 'Bot wins!';
+                    break;
+                case 'tie':
+                    resultText += "It's a tie!";
+                    break;
+            }
+            
+            resultEl.textContent = resultText;
+            
+            // Update stats
+            document.getElementById('games-played').textContent = state.gamesPlayed;
+            document.getElementById('user-wins').textContent = state.userWins;
+            document.getElementById('bot-wins').textContent = state.botWins;
+            document.getElementById('ties').textContent = state.ties;
+            document.getElementById('win-rate').textContent = 
+                ((state.botWins / state.gamesPlayed) * 100).toFixed(1);
+            
+            // Update pattern info
+            updatePatternInfo();
+        }
+        
+        function updatePatternInfo() {
+            if (state.gamesPlayed < 5) {
+                patternInfoEl.textContent = 'Bot is collecting data...';
+                return;
+            }
+            
+            const userPatterns = [];
+            
+            // Check for move frequencies
+            const totalMoves = state.gamesPlayed;
+            const rockPct = (state.moveCounts.rock / totalMoves * 100).toFixed(1);
+            const paperPct = (state.moveCounts.paper / totalMoves * 100).toFixed(1);
+            const scissorsPct = (state.moveCounts.scissors / totalMoves * 100).toFixed(1);
+            
+            userPatterns.push(`You throw Rock ${rockPct}%, Paper ${paperPct}%, Scissors ${scissorsPct}%`);
+            
+            // Check for common transitions
+            if (state.history.length >= 3) {
+                const lastMove = state.history[state.history.length - 2];
+                const currentMove = state.history[state.history.length - 1];
+                const commonNext = predictNextMove(lastMove, currentMove);
+                
+                if (commonNext) {
+                    userPatterns.push(`After ${lastMove}+${currentMove}, you often throw ${commonNext}`);
+                }
+            }
+            
+            patternInfoEl.innerHTML = '<strong>Patterns detected:</strong><br>' + 
+                userPatterns.join('<br>');
         }
     </script>
 </body>
