@@ -1,87 +1,687 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced RPS AI</title>
+    <title>RPS Deep Learning AI</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="ai-system.js" type="module"></script>
-    <script src="stats-manager.js" type="module"></script>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .game-container {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        .game-area {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .training-panel {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .choices {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .choices button {
+            font-size: 50px;
+            width: 80px;
+            height: 80px;
+            border: none;
+            background: #4285f4;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .choices button:hover {
+            transform: scale(1.1);
+            background: #3367d6;
+        }
+        .result {
+            text-align: center;
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+        }
+        .stat-box {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .chart-container {
+            position: relative;
+            height: 200px;
+            margin: 20px 0;
+        }
+        .model-tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .model-tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            background: #e9ecef;
+            border: none;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        .model-tab.active {
+            background: #4285f4;
+            color: white;
+        }
+        .model-content {
+            display: none;
+        }
+        .model-content.active {
+            display: block;
+        }
+        #ai-choice {
+            font-weight: bold;
+        }
+        #round-result {
+            font-weight: bold;
+            color: #1a73e8;
+        }
+    </style>
 </head>
 <body>
-    <div class="dashboard-container">
-        <!-- Game Arena -->
-        <div class="game-arena">
-            <h1>Rock Paper Scissors AI</h1>
+    <div class="header">
+        <h1>Rock-Paper-Scissors AI</h1>
+        <p>Deep Learning AI that learns from your moves and global patterns</p>
+    </div>
+
+    <div class="game-container">
+        <div class="game-area">
+            <h2>Play Against AI</h2>
             <div class="choices">
-                <button class="choice-btn" data-move="rock">✊ Rock</button>
-                <button class="choice-btn" data-move="paper">✋ Paper</button>
-                <button class="choice-btn" data-move="scissors">✌️ Scissors</button>
+                <button id="rock">✊</button>
+                <button id="paper">✋</button>
+                <button id="scissors">✌️</button>
             </div>
-            <div class="result-display">
-                <div class="move-display">
-                    <span id="user-move"></span>
-                    <span class="vs">vs</span>
-                    <span id="ai-move"></span>
+            <div class="result">
+                <p>AI chose: <span id="ai-choice">...</span></p>
+                <p>Result: <span id="round-result">Play a move!</span></p>
+            </div>
+            <div class="stats">
+                <div class="stat-box">
+                    <h3>Your Stats</h3>
+                    <p>Games: <span id="user-games">0</span></p>
+                    <p>Wins: <span id="user-wins">0</span></p>
                 </div>
-                <div id="outcome" class="outcome"></div>
+                <div class="stat-box">
+                    <h3>AI Stats</h3>
+                    <p>Accuracy: <span id="ai-accuracy">0%</span></p>
+                    <p>Win Rate: <span id="ai-win-rate">0%</span></p>
+                </div>
             </div>
         </div>
 
-        <!-- Training Dashboard -->
-        <div class="training-dashboard">
-            <div class="stats-panel">
-                <h2>Training Statistics</h2>
-                <div class="stat-item">
-                    <span class="stat-label">Global Training Cycles:</span>
-                    <span id="global-cycles" class="stat-value">0</span>
+        <div class="training-panel">
+            <h2>AI Training Data</h2>
+            <div class="model-tabs">
+                <button class="model-tab active" onclick="showModel('user')">Your Model</button>
+                <button class="model-tab" onclick="showModel('global')">Global Model</button>
+            </div>
+            
+            <div id="user-model" class="model-content active">
+                <div class="chart-container">
+                    <canvas id="user-loss-chart"></canvas>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Your Training Contribution:</span>
-                    <span id="user-contributions" class="stat-value">0</span>
+                <div class="chart-container">
+                    <canvas id="user-accuracy-chart"></canvas>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">AI Win Rate:</span>
-                    <span id="ai-winrate" class="stat-value">0%</span>
-                    <div class="progress-bar">
-                        <div id="ai-winrate-bar" class="progress-fill"></div>
+                <div class="stats">
+                    <div class="stat-box">
+                        <p>Training Cycles: <span id="user-cycles">0</span></p>
+                    </div>
+                    <div class="stat-box">
+                        <p>Current Accuracy: <span id="user-current-accuracy">0%</span></p>
                     </div>
                 </div>
             </div>
-
-            <div class="confidence-panel">
-                <h2>AI Prediction Confidence</h2>
-                <div class="confidence-meter">
-                    <div class="confidence-item">
-                        <span>Rock</span>
-                        <div class="meter">
-                            <div id="rock-confidence" class="meter-fill" style="width: 33%"></div>
-                            <span id="rock-percent">33%</span>
-                        </div>
+            
+            <div id="global-model" class="model-content">
+                <div class="chart-container">
+                    <canvas id="global-loss-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="global-accuracy-chart"></canvas>
+                </div>
+                <div class="stats">
+                    <div class="stat-box">
+                        <p>Training Cycles: <span id="global-cycles">0</span></p>
                     </div>
-                    <div class="confidence-item">
-                        <span>Paper</span>
-                        <div class="meter">
-                            <div id="paper-confidence" class="meter-fill" style="width: 33%"></div>
-                            <span id="paper-percent">33%</span>
-                        </div>
+                    <div class="stat-box">
+                        <p>Current Accuracy: <span id="global-current-accuracy">0%</span></p>
                     </div>
-                    <div class="confidence-item">
-                        <span>Scissors</span>
-                        <div class="meter">
-                            <div id="scissors-confidence" class="meter-fill" style="width: 33%"></div>
-                            <span id="scissors-percent">33%</span>
-                        </div>
+                    <div class="stat-box">
+                        <p>Total Games: <span id="global-total-games">0</span></p>
                     </div>
                 </div>
-            </div>
-
-            <div class="performance-chart">
-                <canvas id="performanceChart"></canvas>
             </div>
         </div>
     </div>
+
+    <script>
+        // Game State
+        const gameState = {
+            userMoves: [],
+            aiMoves: [],
+            results: [],
+            userWins: 0,
+            aiWins: 0,
+            draws: 0,
+            userModel: null,
+            globalModel: null,
+            userTrainingHistory: { loss: [], accuracy: [] },
+            globalTrainingHistory: { loss: [], accuracy: [] },
+            userChartLoss: null,
+            userChartAccuracy: null,
+            globalChartLoss: null,
+            globalChartAccuracy: null
+        };
+
+        // Move encoding
+        const MOVES = ['rock', 'paper', 'scissors'];
+        const MOVE_EMOJIS = { rock: '✊', paper: '✋', scissors: '✌️' };
+
+        // Initialize when TensorFlow is ready
+        async function initialize() {
+            await tf.ready();
+            
+            // Create models
+            gameState.userModel = createModel();
+            gameState.globalModel = createModel();
+            
+            // Try to load from localStorage
+            loadModels();
+            
+            // Initialize charts
+            initCharts();
+            
+            // Set up event listeners
+            document.getElementById('rock').addEventListener('click', () => playRound('rock'));
+            document.getElementById('paper').addEventListener('click', () => playRound('paper'));
+            document.getElementById('scissors').addEventListener('click', () => playRound('scissors'));
+            
+            console.log('Game initialized');
+        }
+
+        // Create neural network model
+        function createModel() {
+            const model = tf.sequential();
+            model.add(tf.layers.dense({
+                units: 32,
+                activation: 'relu',
+                inputShape: [10]  // Last 3 moves from user and AI + 4 context features
+            }));
+            model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
+            model.add(tf.layers.dense({ units: 3, activation: 'softmax' }));
+            
+            model.compile({
+                optimizer: 'adam',
+                loss: 'categoricalCrossentropy',
+                metrics: ['accuracy']
+            });
+            
+            return model;
+        }
+
+        // Play a round of RPS
+        async function playRound(userMove) {
+            // Get AI prediction
+            const aiPrediction = await predictAiMove(userMove);
+            const aiMove = MOVES[aiPrediction];
+            
+            // Determine winner
+            const result = determineWinner(userMove, aiMove);
+            
+            // Update game state
+            gameState.userMoves.push(userMove);
+            gameState.aiMoves.push(aiMove);
+            gameState.results.push(result);
+            
+            if (result === 'win') gameState.userWins++;
+            if (result === 'lose') gameState.aiWins++;
+            if (result === 'draw') gameState.draws++;
+            
+            // Update UI
+            updateGameUI(userMove, aiMove, result);
+            
+            // Train models (async)
+            setTimeout(() => {
+                trainModels();
+            }, 0);
+        }
+
+        // Predict AI move
+        async function predictAiMove(userMove) {
+            // Prepare input data (last 3 moves + current context)
+            const inputData = prepareInputData(userMove);
+            
+            // Get predictions from both models
+            const userPred = gameState.userModel.predict(tf.tensor2d([inputData])).arraySync()[0];
+            const globalPred = gameState.globalModel.predict(tf.tensor2d([inputData])).arraySync()[0];
+            
+            // Blend predictions (70% user model, 30% global model)
+            const blendedPred = [
+                0.7 * userPred[0] + 0.3 * globalPred[0],
+                0.7 * userPred[1] + 0.3 * globalPred[1],
+                0.7 * userPred[2] + 0.3 * globalPred[2]
+            ];
+            
+            // Choose move (sometimes random for exploration)
+            if (Math.random() < 0.1) {
+                return Math.floor(Math.random() * 3); // 10% random exploration
+            }
+            
+            // Return the index of highest probability
+            return blendedPred.indexOf(Math.max(...blendedPred));
+        }
+
+        // Prepare input data for prediction
+        function prepareInputData(currentUserMove) {
+            // Last 3 moves from user and AI (one-hot encoded)
+            const historyLength = 3;
+            const input = [];
+            
+            // Add move history (padded with zeros if not enough history)
+            for (let i = Math.max(0, gameState.userMoves.length - historyLength); i < gameState.userMoves.length; i++) {
+                input.push(...oneHotEncode(gameState.userMoves[i]));
+                input.push(...oneHotEncode(gameState.aiMoves[i]));
+            }
+            
+            // Pad with zeros if not enough history
+            while (input.length < historyLength * 6) {
+                input.push(0, 0, 0); // Padding for each missing move
+            }
+            
+            // Add current user move
+            input.push(...oneHotEncode(currentUserMove));
+            
+            // Add some context features
+            input.push(gameState.userWins / (gameState.userMoves.length || 1)); // User win ratio
+            input.push(gameState.aiWins / (gameState.userMoves.length || 1)); // AI win ratio
+            input.push(Math.random()); // Noise for variability
+            input.push((gameState.userMoves.length % 10) / 10); // Game count feature
+            
+            return input;
+        }
+
+        // One-hot encode moves
+        function oneHotEncode(move) {
+            const index = MOVES.indexOf(move);
+            return [
+                index === 0 ? 1 : 0,
+                index === 1 ? 1 : 0,
+                index === 2 ? 1 : 0
+            ];
+        }
+
+        // Determine winner
+        function determineWinner(userMove, aiMove) {
+            if (userMove === aiMove) return 'draw';
+            
+            if (
+                (userMove === 'rock' && aiMove === 'scissors') ||
+                (userMove === 'paper' && aiMove === 'rock') ||
+                (userMove === 'scissors' && aiMove === 'paper')
+            ) {
+                return 'win';
+            }
+            
+            return 'lose';
+        }
+
+        // Train both models
+        async function trainModels() {
+            if (gameState.userMoves.length < 5) return; // Need some data
+            
+            // Prepare training data
+            const { inputs, labels } = prepareTrainingData();
+            
+            // Train user model
+            const userHistory = await gameState.userModel.fit(
+                tf.tensor2d(inputs),
+                tf.tensor2d(labels),
+                {
+                    epochs: 5,
+                    batchSize: 4,
+                    callbacks: {
+                        onEpochEnd: (epoch, logs) => {
+                            gameState.userTrainingHistory.loss.push(logs.loss);
+                            gameState.userTrainingHistory.accuracy.push(logs.acc);
+                            updateUserCharts();
+                        }
+                    }
+                }
+            );
+            
+            // Update user training cycles
+            document.getElementById('user-cycles').textContent = 
+                parseInt(document.getElementById('user-cycles').textContent) + 5;
+            document.getElementById('user-current-accuracy').textContent = 
+                (userHistory.history.acc[userHistory.history.acc.length - 1] * 100).toFixed(1) + '%';
+            
+            // Train global model (less frequently)
+            if (gameState.userMoves.length % 10 === 0) {
+                const globalHistory = await gameState.globalModel.fit(
+                    tf.tensor2d(inputs),
+                    tf.tensor2d(labels),
+                    {
+                        epochs: 3,
+                        batchSize: 8,
+                        callbacks: {
+                            onEpochEnd: (epoch, logs) => {
+                                gameState.globalTrainingHistory.loss.push(logs.loss);
+                                gameState.globalTrainingHistory.accuracy.push(logs.acc);
+                                updateGlobalCharts();
+                            }
+                        }
+                    }
+                );
+                
+                // Update global training cycles
+                document.getElementById('global-cycles').textContent = 
+                    parseInt(document.getElementById('global-cycles').textContent) + 3;
+                document.getElementById('global-current-accuracy').textContent = 
+                    (globalHistory.history.acc[globalHistory.history.acc.length - 1] * 100).toFixed(1) + '%';
+            }
+            
+            // Save models to localStorage
+            saveModels();
+        }
+
+        // Prepare training data
+        function prepareTrainingData() {
+            const inputs = [];
+            const labels = [];
+            
+            // We'll train on sequences where we know the next move
+            for (let i = 3; i < gameState.userMoves.length; i++) {
+                // Create input from previous moves
+                const input = [];
+                for (let j = i - 3; j < i; j++) {
+                    if (j >= 0) {
+                        input.push(...oneHotEncode(gameState.userMoves[j]));
+                        input.push(...oneHotEncode(gameState.aiMoves[j]));
+                    } else {
+                        input.push(0, 0, 0, 0, 0, 0); // Padding
+                    }
+                }
+                
+                // Add context features
+                const winRatio = gameState.userWins / i;
+                input.push(winRatio, 1 - winRatio, Math.random(), (i % 10) / 10);
+                
+                inputs.push(input);
+                
+                // Label is the next AI move (what would have been correct)
+                const nextUserMove = gameState.userMoves[i];
+                const counterMove = getCounterMove(nextUserMove);
+                labels.push(oneHotEncode(counterMove));
+            }
+            
+            return { inputs, labels };
+        }
+
+        // Get counter move
+        function getCounterMove(move) {
+            if (move === 'rock') return 'paper';
+            if (move === 'paper') return 'scissors';
+            if (move === 'scissors') return 'rock';
+            return MOVES[Math.floor(Math.random() * 3)];
+        }
+
+        // Update game UI
+        function updateGameUI(userMove, aiMove, result) {
+            document.getElementById('ai-choice').textContent = `${MOVE_EMOJIS[aiMove]} ${aiMove}`;
+            
+            let resultText = '';
+            let resultColor = '';
+            if (result === 'win') {
+                resultText = 'You won!';
+                resultColor = '#0f9d58';
+            } else if (result === 'lose') {
+                resultText = 'AI won!';
+                resultColor = '#db4437';
+            } else {
+                resultText = 'Draw!';
+                resultColor = '#f4b400';
+            }
+            
+            document.getElementById('round-result').textContent = resultText;
+            document.getElementById('round-result').style.color = resultColor;
+            
+            // Update stats
+            document.getElementById('user-games').textContent = gameState.userMoves.length;
+            document.getElementById('user-wins').textContent = gameState.userWins;
+            
+            const aiAccuracy = gameState.aiWins / (gameState.userMoves.length || 1);
+            document.getElementById('ai-accuracy').textContent = `${(aiAccuracy * 100).toFixed(1)}%`;
+            document.getElementById('ai-win-rate').textContent = `${(aiAccuracy * 100).toFixed(1)}%`;
+            
+            // Update global stats
+            document.getElementById('global-total-games').textContent = gameState.userMoves.length;
+        }
+
+        // Initialize charts
+        function initCharts() {
+            // User loss chart
+            gameState.userChartLoss = new Chart(
+                document.getElementById('user-loss-chart').getContext('2d'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: Array(20).fill('').map((_, i) => i + 1),
+                        datasets: [{
+                            label: 'Training Loss',
+                            data: [],
+                            borderColor: '#4285f4',
+                            backgroundColor: 'rgba(66, 133, 244, 0.1)',
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true } }
+                    }
+                }
+            );
+            
+            // User accuracy chart
+            gameState.userChartAccuracy = new Chart(
+                document.getElementById('user-accuracy-chart').getContext('2d'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: Array(20).fill('').map((_, i) => i + 1),
+                        datasets: [{
+                            label: 'Training Accuracy',
+                            data: [],
+                            borderColor: '#0f9d58',
+                            backgroundColor: 'rgba(15, 157, 88, 0.1)',
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true, max: 1 } }
+                    }
+                }
+            );
+            
+            // Global loss chart
+            gameState.globalChartLoss = new Chart(
+                document.getElementById('global-loss-chart').getContext('2d'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: Array(20).fill('').map((_, i) => i + 1),
+                        datasets: [{
+                            label: 'Training Loss',
+                            data: [],
+                            borderColor: '#db4437',
+                            backgroundColor: 'rgba(219, 68, 55, 0.1)',
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true } }
+                    }
+                }
+            );
+            
+            // Global accuracy chart
+            gameState.globalChartAccuracy = new Chart(
+                document.getElementById('global-accuracy-chart').getContext('2d'),
+                {
+                    type: 'line',
+                    data: {
+                        labels: Array(20).fill('').map((_, i) => i + 1),
+                        datasets: [{
+                            label: 'Training Accuracy',
+                            data: [],
+                            borderColor: '#f4b400',
+                            backgroundColor: 'rgba(244, 180, 0, 0.1)',
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true, max: 1 } }
+                    }
+                }
+            );
+        }
+
+        // Update user charts
+        function updateUserCharts() {
+            const lossData = gameState.userTrainingHistory.loss.slice(-20);
+            const accData = gameState.userTrainingHistory.accuracy.slice(-20);
+            
+            gameState.userChartLoss.data.datasets[0].data = lossData;
+            gameState.userChartLoss.data.labels = lossData.map((_, i) => i + 1);
+            gameState.userChartLoss.update();
+            
+            gameState.userChartAccuracy.data.datasets[0].data = accData;
+            gameState.userChartAccuracy.data.labels = accData.map((_, i) => i + 1);
+            gameState.userChartAccuracy.update();
+        }
+
+        // Update global charts
+        function updateGlobalCharts() {
+            const lossData = gameState.globalTrainingHistory.loss.slice(-20);
+            const accData = gameState.globalTrainingHistory.accuracy.slice(-20);
+            
+            gameState.globalChartLoss.data.datasets[0].data = lossData;
+            gameState.globalChartLoss.data.labels = lossData.map((_, i) => i + 1);
+            gameState.globalChartLoss.update();
+            
+            gameState.globalChartAccuracy.data.datasets[0].data = accData;
+            gameState.globalChartAccuracy.data.labels = accData.map((_, i) => i + 1);
+            gameState.globalChartAccuracy.update();
+        }
+
+        // Show model tab
+        function showModel(model) {
+            document.querySelectorAll('.model-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.model-content').forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`.model-tab[onclick="showModel('${model}')"]`).classList.add('active');
+            document.getElementById(`${model}-model`).classList.add('active');
+        }
+
+        // Save models to localStorage
+        async function saveModels() {
+            try {
+                // Save user model
+                const userModelArtifacts = await gameState.userModel.save('localstorage://user-rps-model');
+                
+                // Save global model
+                const globalModelArtifacts = await gameState.globalModel.save('localstorage://global-rps-model');
+                
+                // Save game state
+                const gameStateToSave = {
+                    userMoves: gameState.userMoves,
+                    aiMoves: gameState.aiMoves,
+                    results: gameState.results,
+                    userWins: gameState.userWins,
+                    aiWins: gameState.aiWins,
+                    draws: gameState.draws,
+                    userTrainingHistory: gameState.userTrainingHistory,
+                    globalTrainingHistory: gameState.globalTrainingHistory
+                };
+                
+                localStorage.setItem('rps-game-state', JSON.stringify(gameStateToSave));
+            } catch (error) {
+                console.error('Error saving models:', error);
+            }
+        }
+
+        // Load models from localStorage
+        async function loadModels() {
+            try {
+                // Load user model
+                const userModel = await tf.loadLayersModel('localstorage://user-rps-model');
+                if (userModel) gameState.userModel = userModel;
+                
+                // Load global model
+                const globalModel = await tf.loadLayersModel('localstorage://global-rps-model');
+                if (globalModel) gameState.globalModel = globalModel;
+                
+                // Load game state
+                const savedState = localStorage.getItem('rps-game-state');
+                if (savedState) {
+                    const parsedState = JSON.parse(savedState);
+                    Object.assign(gameState, parsedState);
+                    
+                    // Update UI with loaded state
+                    updateGameUI('', '', '');
+                    updateUserCharts();
+                    updateGlobalCharts();
+                    
+                    document.getElementById('user-cycles').textContent = 
+                        gameState.userTrainingHistory.loss.length || '0';
+                    document.getElementById('global-cycles').textContent = 
+                        gameState.globalTrainingHistory.loss.length || '0';
+                }
+            } catch (error) {
+                console.log('No saved models found, starting fresh');
+            }
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', initialize);
+    </script>
 </body>
 </html>
