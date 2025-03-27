@@ -22,6 +22,10 @@
             border-radius: 50%;
             cursor: pointer;
             margin: 10px;
+            transition: transform 0.2s;
+        }
+        .choices button:hover {
+            transform: scale(1.1);
         }
         #result {
             font-size: 24px;
@@ -33,9 +37,10 @@
             justify-content: center;
             gap: 20px;
             margin: 20px 0;
+            flex-wrap: wrap;
         }
         .stat-box {
-            padding: 10px;
+            padding: 15px;
             background: #f0f0f0;
             border-radius: 5px;
             min-width: 120px;
@@ -44,9 +49,9 @@
             margin: 50px 0;
             font-size: 18px;
         }
-        .win { color: green; }
-        .lose { color: red; }
-        .draw { color: orange; }
+        .win { color: #2ecc71; }
+        .lose { color: #e74c3c; }
+        .draw { color: #f39c12; }
     </style>
 </head>
 <body>
@@ -78,37 +83,37 @@
     </div>
 
     <script>
-        // Supabase setup - REPLACE WITH YOUR CREDENTIALS
-        const supabaseUrl = 'https://orpljgijsehehkbnfqpk.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycGxqZ2lqc2VoZWhrYm5mcXBrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MTIxOTMxMiwiZXhwIjoyMDU2Nzk1MzEyfQ.cYD1OyDJHv5POvPfg6clh_1LGGcC6IFtqwZ-Fjc-4ts';
-        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        // Configuration - will be replaced during deployment
+        const SUPABASE_URL = process.env.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+        const SUPABASE_KEY = process.env.SUPABASE_KEY || 'YOUR_SUPABASE_KEY';
         
         // Game state
         const game = {
             userWins: 0,
             userLosses: 0,
             draws: 0,
-            userModel: null,
-            globalModel: null,
-            ready: false
+            model: null,
+            ready: false,
+            supabase: null
         };
         
         // Initialize game
         async function init() {
             try {
+                // Initialize Supabase with environment variables
+                game.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                
+                // Load TF.js
                 await tf.ready();
                 
-                // Create models
-                game.userModel = createModel();
-                game.globalModel = createModel();
+                // Create model
+                game.model = createModel();
                 
                 // Load saved data
-                await loadModels();
+                await loadData();
                 
                 // Setup UI
-                document.getElementById('rock').onclick = () => play('rock');
-                document.getElementById('paper').onclick = () => play('paper');
-                document.getElementById('scissors').onclick = () => play('scissors');
+                setupControls();
                 
                 // Show game
                 document.getElementById('loading').style.display = 'none';
@@ -116,18 +121,35 @@
                 game.ready = true;
                 
             } catch (error) {
-                document.getElementById('loading').textContent = 'Error loading AI. Please refresh.';
+                document.getElementById('loading').textContent = 'Error loading. Please refresh.';
                 console.error(error);
             }
         }
         
-        // Simple neural network
+        // Create neural network
         function createModel() {
             const model = tf.sequential();
-            model.add(tf.layers.dense({units: 8, activation: 'relu', inputShape: [6]}));
-            model.add(tf.layers.dense({units: 3, activation: 'softmax'}));
-            model.compile({optimizer: 'adam', loss: 'categoricalCrossentropy'});
+            model.add(tf.layers.dense({
+                units: 8,
+                activation: 'relu',
+                inputShape: [4]
+            }));
+            model.add(tf.layers.dense({
+                units: 3,
+                activation: 'softmax'
+            }));
+            model.compile({
+                optimizer: 'adam',
+                loss: 'categoricalCrossentropy'
+            });
             return model;
+        }
+        
+        // Setup game controls
+        function setupControls() {
+            document.getElementById('rock').onclick = () => play('rock');
+            document.getElementById('paper').onclick = () => play('paper');
+            document.getElementById('scissors').onclick = () => play('scissors');
         }
         
         // Play a round
@@ -143,11 +165,11 @@
             
             // Train after 5 moves
             if (game.userWins + game.userLosses + game.draws >= 5) {
-                await trainModels();
+                await trainModel();
             }
         }
         
-        // AI move prediction
+        // Get AI move
         async function getAiMove(userMove) {
             const moves = ['rock', 'paper', 'scissors'];
             
@@ -156,51 +178,29 @@
                 return moves[Math.floor(Math.random() * 3)];
             }
             
-            // Predict using models
+            // Predict using model
             const input = createInput(userMove);
             const tensor = tf.tensor2d([input]);
             
-            const userPred = await game.userModel.predict(tensor).array();
-            const globalPred = await game.globalModel.predict(tensor).array();
+            const prediction = await game.model.predict(tensor).array();
             tensor.dispose();
-            
-            // Blend predictions
-            const blended = [
-                0.7 * userPred[0][0] + 0.3 * globalPred[0][0],
-                0.7 * userPred[0][1] + 0.3 * globalPred[0][1],
-                0.7 * userPred[0][2] + 0.3 * globalPred[0][2]
-            ];
             
             // Sometimes random for exploration
             if (Math.random() < 0.1) return moves[Math.floor(Math.random() * 3)];
             
-            return moves[blended.indexOf(Math.max(...blended))];
+            return moves[prediction[0].indexOf(Math.max(...prediction[0]))];
         }
         
         // Create input for prediction
         function createInput(userMove) {
-            // Simplified input - just last 2 moves
-            const input = [];
-            const total = game.userWins + game.userLosses + game.draws;
-            
-            if (total > 0) {
-                input.push(...encodeMove(userMove));
-                input.push(game.userWins / total);
-                input.push(game.userLosses / total);
-            } else {
-                input.push(0, 0, 0, 0.5, 0.5);
-            }
-            
-            return input;
-        }
-        
-        // Encode move as numbers
-        function encodeMove(move) {
-            return [
-                move === 'rock' ? 1 : 0,
-                move === 'paper' ? 1 : 0,
-                move === 'scissors' ? 1 : 0
+            // Simple input: last move and win ratio
+            const input = [
+                userMove === 'rock' ? 1 : 0,
+                userMove === 'paper' ? 1 : 0,
+                userMove === 'scissors' ? 1 : 0,
+                game.userWins / (game.userWins + game.userLosses || 1)
             ];
+            return input;
         }
         
         // Determine winner
@@ -212,7 +212,7 @@
             return 'lose';
         }
         
-        // Update game state and UI
+        // Update game state
         function updateGame(result) {
             if (result === 'win') game.userWins++;
             if (result === 'lose') game.userLosses++;
@@ -222,10 +222,10 @@
             document.getElementById('user-wins').textContent = game.userWins;
             document.getElementById('user-losses').textContent = game.userLosses;
             
-            const total = game.userWins + game.userLosses;
-            const winRate = total > 0 ? Math.round((game.userLosses / total) * 100) : 0;
+            const total = game.userWins + game.userLosses || 1;
+            const winRate = Math.round((game.userLosses / total) * 100);
             document.getElementById('ai-win-rate').textContent = winRate + '%';
-            document.getElementById('total-games').textContent = total + game.draws;
+            document.getElementById('total-games').textContent = game.userWins + game.userLosses + game.draws;
             
             // Save game state
             localStorage.setItem('rps-game', JSON.stringify({
@@ -235,16 +235,21 @@
             }));
         }
         
-        // Train models
-        async function trainModels() {
-            // In a real app, you'd implement proper training here
-            // For simplicity, we'll just count this as training
-            await saveModels();
+        // Train model
+        async function trainModel() {
+            // In a real app, implement proper training here
+            // For this example, we'll just simulate training
+            console.log("Training model...");
+            
+            // Sync with Supabase every 10 games
+            if ((game.userWins + game.userLosses) % 10 === 0) {
+                await syncWithSupabase();
+            }
         }
         
-        // Load models
-        async function loadModels() {
-            // Load user data
+        // Load data
+        async function loadData() {
+            // Load local data
             const saved = localStorage.getItem('rps-game');
             if (saved) {
                 const data = JSON.parse(saved);
@@ -255,7 +260,7 @@
             
             // Try to load global model from Supabase
             try {
-                const { data } = await supabase
+                const { data } = await game.supabase
                     .from('global_models')
                     .select('model_data,total_games')
                     .eq('name', 'rps_global')
@@ -263,7 +268,7 @@
                 
                 if (data?.model_data) {
                     const artifacts = JSON.parse(atob(data.model_data));
-                    await game.globalModel.load(artifacts);
+                    await game.model.load(artifacts);
                     document.getElementById('total-games').textContent = data.total_games || 0;
                 }
             } catch (error) {
@@ -271,28 +276,22 @@
             }
         }
         
-        // Save models
-        async function saveModels() {
-            // Save user model to localStorage
-            await game.userModel.save('localstorage://user-model');
-            
-            // Update global model in Supabase every 10 games
-            if ((game.userWins + game.userLosses) % 10 === 0) {
-                try {
-                    const artifacts = await game.globalModel.save();
-                    const modelData = btoa(JSON.stringify(artifacts));
-                    
-                    await supabase
-                        .from('global_models')
-                        .upsert({
-                            name: 'rps_global',
-                            model_data: modelData,
-                            total_games: game.userWins + game.userLosses + game.draws,
-                            updated_at: new Date().toISOString()
-                        });
-                } catch (error) {
-                    console.error('Error saving global model:', error);
-                }
+        // Sync with Supabase
+        async function syncWithSupabase() {
+            try {
+                const artifacts = await game.model.save();
+                const modelData = btoa(JSON.stringify(artifacts));
+                
+                await game.supabase
+                    .from('global_models')
+                    .upsert({
+                        name: 'rps_global',
+                        model_data: modelData,
+                        total_games: game.userWins + game.userLosses + game.draws,
+                        updated_at: new Date().toISOString()
+                    });
+            } catch (error) {
+                console.error('Error syncing with Supabase:', error);
             }
         }
         
