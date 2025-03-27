@@ -1,604 +1,87 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>MegaMind RPS Challenge</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 20px;
-      background-color: #121212;
-      color: #ffffff;
-    }
-    .game-container {
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 30px;
-      background-color: #1e1e1e;
-      border-radius: 15px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-    }
-    h1 {
-      color: #4CAF50;
-      margin-bottom: 10px;
-    }
-    .subtitle {
-      color: #aaaaaa;
-      margin-bottom: 30px;
-    }
-    .choices {
-      display: flex;
-      justify-content: space-around;
-      margin: 40px 0;
-      flex-wrap: wrap;
-      gap: 15px;
-    }
-    .choice {
-      padding: 20px 30px;
-      font-size: 20px;
-      cursor: pointer;
-      border: none;
-      border-radius: 8px;
-      background-color: #4CAF50;
-      color: white;
-      transition: all 0.3s;
-      min-width: 120px;
-    }
-    .choice:hover {
-      transform: scale(1.05);
-      background-color: #45a049;
-      box-shadow: 0 0 15px rgba(76, 175, 80, 0.4);
-    }
-    .choice:active {
-      transform: scale(0.98);
-    }
-    .result-container {
-      margin: 30px 0;
-      min-height: 120px;
-    }
-    .moves {
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-    .result {
-      font-size: 28px;
-      font-weight: bold;
-      margin: 15px 0;
-    }
-    .win {
-      color: #4CAF50;
-    }
-    .lose {
-      color: #f44336;
-    }
-    .tie {
-      color: #FFC107;
-    }
-    .ai-thinking {
-      font-style: italic;
-      color: #aaaaaa;
-      height: 20px;
-      margin: 10px 0;
-    }
-    .stats {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 30px;
-      background-color: #252525;
-      padding: 15px;
-      border-radius: 8px;
-    }
-    .stat {
-      font-size: 18px;
-    }
-    .stat-value {
-      font-size: 24px;
-      font-weight: bold;
-      color: #4CAF50;
-    }
-    .advanced-stats {
-      margin-top: 30px;
-      text-align: left;
-      background-color: #252525;
-      padding: 15px;
-      border-radius: 8px;
-      display: none;
-    }
-    .toggle-stats {
-      margin-top: 20px;
-      padding: 8px 15px;
-      background-color: #333;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .confidence-meter {
-      height: 10px;
-      background-color: #333;
-      border-radius: 5px;
-      margin-top: 5px;
-      overflow: hidden;
-    }
-    .confidence-level {
-      height: 100%;
-      background: linear-gradient(to right, #f44336, #FFC107, #4CAF50);
-      width: 0%;
-      transition: width 0.5s;
-    }
-    @media (max-width: 600px) {
-      .choices {
-        flex-direction: column;
-        align-items: center;
-      }
-      .choice {
-        width: 80%;
-      }
-    }
-  </style>
+    <title>Self-Learning RPS AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .choices {
+            margin: 30px 0;
+        }
+        button {
+            padding: 15px 25px;
+            font-size: 18px;
+            margin: 0 10px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            font-size: 24px;
+            margin: 20px 0;
+            min-height: 30px;
+        }
+        #stats {
+            margin-top: 30px;
+            text-align: left;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        .progress-container {
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 20px;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+        }
+    </style>
 </head>
 <body>
-  <div class="game-container">
-    <h1>MegaMind RPS Challenge</h1>
-    <p class="subtitle">Can you outsmart the adaptive AI?</p>
+    <h1>Self-Learning Rock-Paper-Scissors</h1>
+    <p>Play against an AI that learns from your patterns</p>
     
     <div class="choices">
-      <button class="choice" data-move="rock">✊ Rock</button>
-      <button class="choice" data-move="paper">✋ Paper</button>
-      <button class="choice" data-move="scissors">✌ Scissors</button>
+        <button id="rock">✊ Rock</button>
+        <button id="paper">✋ Paper</button>
+        <button id="scissors">✌️ Scissors</button>
     </div>
     
-    <div class="ai-thinking" id="aiThinking"></div>
+    <div id="result"></div>
     
-    <div class="result-container">
-      <div class="moves" id="moves"></div>
-      <div class="result" id="result"></div>
-      <div class="confidence-meter">
-        <div class="confidence-level" id="confidenceLevel"></div>
-      </div>
+    <div id="stats">
+        <h3>AI Learning Progress</h3>
+        <p>Games played: <span id="gameCount">0</span></p>
+        <p>AI Win Rate: <span id="winRate">0</span>%</p>
+        
+        <p>Your most frequent moves:</p>
+        <div class="progress-container">
+            <div id="rockProgress" class="progress-bar" style="width: 33%">Rock: 33%</div>
+        </div>
+        <div class="progress-container">
+            <div id="paperProgress" class="progress-bar" style="width: 33%">Paper: 33%</div>
+        </div>
+        <div class="progress-container">
+            <div id="scissorsProgress" class="progress-bar" style="width: 33%">Scissors: 33%</div>
+        </div>
     </div>
-    
-    <div class="stats">
-      <div class="stat">
-        Wins: <span class="stat-value" id="wins">0</span>
-      </div>
-      <div class="stat">
-        Losses: <span class="stat-value" id="losses">0</span>
-      </div>
-      <div class="stat">
-        Ties: <span class="stat-value" id="ties">0</span>
-      </div>
-    </div>
-    
-    <button class="toggle-stats" id="toggleStats">Show Advanced Stats</button>
-    
-    <div class="advanced-stats" id="advancedStats">
-      <h3>AI Analysis</h3>
-      <p>Your predictability: <span id="predictability">50</span>%</p>
-      <p>Your aggression: <span id="aggression">50</span>%</p>
-      <p>Your habit strength: <span id="habitStrength">50</span>%</p>
-      <p>AI confidence: <span id="confidence">50</span>%</p>
-      <h3>Move Statistics</h3>
-      <p>Rock: <span id="rockCount">0</span> (<span id="rockPercent">0</span>%)</p>
-      <p>Paper: <span id="paperCount">0</span> (<span id="paperPercent">0</span>%)</p>
-      <p>Scissors: <span id="scissorsCount">0</span> (<span id="scissorsPercent">0</span>%)</p>
-    </div>
-  </div>
 
-  <script>
-    // Enhanced MegaMind AI Class
-    class MegaMindAI {
-      constructor() {
-        // Memory systems
-        this.history = [];
-        this.patternMemory = {};
-        this.lastMove = null;
-        this.moveFrequencies = {rock: 0, paper: 0, scissors: 0};
-        
-        // Psychological modeling
-        this.opponentModel = {
-          aggression: 0.5,
-          predictability: 0.5,
-          habitStrength: 0.5,
-          recentChanges: []
-        };
-        
-        // Game state
-        this.winStreak = 0;
-        this.loseStreak = 0;
-        this.tieStreak = 0;
-        this.confidence = 0.5;
-      }
-
-      getMove() {
-        if (this.history.length < 3) {
-          this.confidence = 0.3;
-          return this.getRandomMove();
-        }
-        
-        const predictedHumanMove = this.predictHumanMove();
-        this.updateConfidence(predictedHumanMove);
-        return this.getCounterMove(predictedHumanMove);
-      }
-
-      recordResult(humanMove, aiMove, result) {
-        this.history.push({humanMove, aiMove, result});
-        this.lastMove = humanMove;
-        this.moveFrequencies[humanMove]++;
-        
-        // Update streaks
-        if (result === 'win') {
-          this.winStreak++;
-          this.loseStreak = 0;
-          this.tieStreak = 0;
-        } else if (result === 'lose') {
-          this.loseStreak++;
-          this.winStreak = 0;
-          this.tieStreak = 0;
-        } else {
-          this.tieStreak++;
-          this.winStreak = 0;
-          this.loseStreak = 0;
-        }
-        
-        this.updatePatternMemory(humanMove);
-        this.updatePsychologicalModel(humanMove, result);
-      }
-
-      predictHumanMove() {
-        // 1. Check for immediate repeats (most humans repeat after wins)
-        if (this.winStreak >= 1 && this.history.length >= 2) {
-          const lastResult = this.history[this.history.length - 1].result;
-          if (lastResult === 'win' && Math.random() < this.opponentModel.habitStrength) {
-            this.confidence = Math.min(0.9, this.confidence + 0.1);
-            return this.lastMove;
-          }
-        }
-        
-        // 2. Check for rotation patterns
-        if (this.history.length >= 3) {
-          const lastThree = this.history.slice(-3).map(x => x.humanMove);
-          if (this.isRotationPattern(lastThree) && Math.random() < this.opponentModel.predictability) {
-            this.confidence = Math.min(0.8, this.confidence + 0.15);
-            return this.nextInRotation(lastThree[2]);
-          }
-        }
-        
-        // 3. Check for double-run patterns (rock, rock, paper, paper)
-        if (this.history.length >= 4) {
-          const lastFour = this.history.slice(-4).map(x => x.humanMove);
-          if (this.isDoubleRunPattern(lastFour) && Math.random() < this.opponentModel.predictability) {
-            this.confidence = Math.min(0.85, this.confidence + 0.2);
-            return lastFour[2]; // Next in double run
-          }
-        }
-        
-        // 4. Frequency analysis with recency bias
-        const weightedFrequencies = this.getWeightedFrequencies();
-        let predictedMove = this.getHighestFrequencyMove(weightedFrequencies);
-        
-        // 5. Psychological adjustments
-        if (this.opponentModel.aggression > 0.7 && this.winStreak >= 2) {
-          predictedMove = this.lastMove;
-          this.confidence = Math.min(0.95, this.confidence + 0.25);
-        }
-        
-        if (this.opponentModel.habitStrength > 0.6 && this.loseStreak >= 2) {
-          predictedMove = this.getShiftedMove(predictedMove);
-          this.confidence = Math.max(0.4, this.confidence - 0.1);
-        }
-        
-        return predictedMove;
-      }
-
-      updateConfidence(predictedMove) {
-        if (this.history.length < 5) {
-          this.confidence = 0.4 + (this.history.length * 0.1);
-          return;
-        }
-        
-        // Calculate prediction accuracy
-        const recentPredictions = Math.min(5, this.history.length);
-        let correctPredictions = 0;
-        
-        for (let i = 1; i <= recentPredictions; i++) {
-          const pastMove = this.history[this.history.length - i].humanMove;
-          const predicted = this.predictMoveFromHistory(this.history.slice(0, -i));
-          if (predicted === pastMove) correctPredictions++;
-        }
-        
-        const accuracy = correctPredictions / recentPredictions;
-        this.confidence = Math.min(0.95, Math.max(0.3, accuracy * 0.8 + this.confidence * 0.2));
-      }
-
-      predictMoveFromHistory(partialHistory) {
-        if (partialHistory.length < 3) return this.getRandomMove();
-        
-        // Simplified prediction for accuracy calculation
-        const frequencies = {rock: 0, paper: 0, scissors: 0};
-        const decay = 0.85;
-        
-        for (let i = 0; i < partialHistory.length; i++) {
-          const weight = Math.pow(decay, partialHistory.length - i - 1);
-          frequencies[partialHistory[i].humanMove] += weight;
-        }
-        
-        return this.getHighestFrequencyMove(frequencies);
-      }
-
-      getCounterMove(move) {
-        if (move === 'rock') return 'paper';
-        if (move === 'paper') return 'scissors';
-        return 'rock';
-      }
-
-      getRandomMove() {
-        const moves = ['rock', 'paper', 'scissors'];
-        return moves[Math.floor(Math.random() * 3)];
-      }
-
-      isRotationPattern(moves) {
-        const sequences = [
-          ['rock', 'paper', 'scissors'],
-          ['paper', 'scissors', 'rock'],
-          ['scissors', 'rock', 'paper']
-        ];
-        return sequences.some(seq => 
-          moves[0] === seq[0] && moves[1] === seq[1] && moves[2] === seq[2]
-        );
-      }
-
-      isDoubleRunPattern(moves) {
-        return moves[0] === moves[1] && moves[2] === moves[3] && moves[0] !== moves[2];
-      }
-
-      nextInRotation(move) {
-        if (move === 'rock') return 'paper';
-        if (move === 'paper') return 'scissors';
-        return 'rock';
-      }
-
-      getWeightedFrequencies() {
-        const frequencies = {rock: 0, paper: 0, scissors: 0};
-        const decayRate = 0.9;
-        
-        for (let i = 0; i < this.history.length; i++) {
-          const weight = Math.pow(decayRate, this.history.length - i - 1);
-          frequencies[this.history[i].humanMove] += weight;
-        }
-        
-        // Adjust for opponent model
-        if (this.opponentModel.aggression > 0.6) {
-          frequencies[this.lastMove] *= 1.2;
-        }
-        
-        return frequencies;
-      }
-
-      getHighestFrequencyMove(frequencies) {
-        let max = -1;
-        let move = 'rock';
-        
-        for (const [key, value] of Object.entries(frequencies)) {
-          if (value > max) {
-            max = value;
-            move = key;
-          }
-        }
-        
-        // Add slight randomness to avoid being too predictable
-        if (Math.random() < 0.1) {
-          const moves = ['rock', 'paper', 'scissors'].filter(m => m !== move);
-          return moves[Math.floor(Math.random() * 2)];
-        }
-        
-        return move;
-      }
-
-      getShiftedMove(move) {
-        // When humans lose, they often shift in a particular direction
-        const shifts = {
-          rock: ['paper', 'scissors'],
-          paper: ['scissors', 'rock'],
-          scissors: ['rock', 'paper']
-        };
-        return shifts[move][Math.floor(Math.random() * 2)];
-      }
-
-      updatePatternMemory(humanMove) {
-        // Update pattern memory for sequences
-        if (this.history.length >= 2) {
-          const prevMove = this.history[this.history.length - 2].humanMove;
-          const key = `${prevMove}-${humanMove}`;
-          this.patternMemory[key] = (this.patternMemory[key] || 0) + 1;
-        }
-        
-        // Update transition probabilities
-        if (this.history.length >= 3) {
-          const prevPrevMove = this.history[this.history.length - 3].humanMove;
-          const prevMove = this.history[this.history.length - 2].humanMove;
-          const transitionKey = `${prevPrevMove}-${prevMove}-${humanMove}`;
-          this.patternMemory[transitionKey] = (this.patternMemory[transitionKey] || 0) + 1;
-        }
-      }
-
-      updatePsychologicalModel(humanMove, result) {
-        // Track move repetitions
-        if (this.history.length >= 2) {
-          const prevMove = this.history[this.history.length - 2].humanMove;
-          const isRepeat = prevMove === humanMove;
-          
-          // Update aggression (repeating after win suggests aggression)
-          if (result === 'win' && isRepeat) {
-            this.opponentModel.aggression = Math.min(1, this.opponentModel.aggression + 0.15);
-          } else if (result === 'lose' && !isRepeat) {
-            this.opponentModel.aggression = Math.max(0, this.opponentModel.aggression - 0.1);
-          }
-          
-          // Update predictability
-          const recentMoves = this.history.slice(-5).map(x => x.humanMove);
-          const uniqueMoves = new Set(recentMoves).size;
-          this.opponentModel.predictability = 1.2 - (uniqueMoves / 3); // Adjusted scale
-          
-          // Update habit strength
-          if (isRepeat) {
-            this.opponentModel.habitStrength = Math.min(1, this.opponentModel.habitStrength + 0.1);
-          } else {
-            this.opponentModel.habitStrength = Math.max(0, this.opponentModel.habitStrength - 0.05);
-          }
-        }
-        
-        // Decay values over time
-        this.opponentModel.aggression *= 0.98;
-        this.opponentModel.predictability *= 0.99;
-        this.opponentModel.habitStrength *= 0.99;
-      }
-      
-      getStats() {
-        const totalMoves = this.history.length;
-        return {
-          predictability: Math.round(this.opponentModel.predictability * 100),
-          aggression: Math.round(this.opponentModel.aggression * 100),
-          habitStrength: Math.round(this.opponentModel.habitStrength * 100),
-          confidence: Math.round(this.confidence * 100),
-          rockCount: this.moveFrequencies.rock,
-          paperCount: this.moveFrequencies.paper,
-          scissorsCount: this.moveFrequencies.scissors,
-          rockPercent: totalMoves > 0 ? Math.round((this.moveFrequencies.rock / totalMoves) * 100) : 0,
-          paperPercent: totalMoves > 0 ? Math.round((this.moveFrequencies.paper / totalMoves) * 100) : 0,
-          scissorsPercent: totalMoves > 0 ? Math.round((this.moveFrequencies.scissors / totalMoves) * 100) : 0
-        };
-      }
-    }
-
-    // Initialize the AI
-    const ai = new MegaMindAI();
-    
-    // Game state
-    const gameState = {
-      wins: 0,
-      losses: 0,
-      ties: 0,
-      total: 0
-    };
-    
-    // DOM elements
-    const resultEl = document.getElementById('result');
-    const movesEl = document.getElementById('moves');
-    const aiThinkingEl = document.getElementById('aiThinking');
-    const winsEl = document.getElementById('wins');
-    const lossesEl = document.getElementById('losses');
-    const tiesEl = document.getElementById('ties');
-    const confidenceLevelEl = document.getElementById('confidenceLevel');
-    const toggleStatsBtn = document.getElementById('toggleStats');
-    const advancedStatsEl = document.getElementById('advancedStats');
-    
-    // Move buttons
-    document.querySelectorAll('.choice').forEach(button => {
-      button.addEventListener('click', function() {
-        const humanMove = this.getAttribute('data-move');
-        playRound(humanMove);
-      });
-    });
-    
-    // Toggle advanced stats
-    toggleStatsBtn.addEventListener('click', function() {
-      if (advancedStatsEl.style.display === 'block') {
-        advancedStatsEl.style.display = 'none';
-        this.textContent = 'Show Advanced Stats';
-      } else {
-        advancedStatsEl.style.display = 'block';
-        this.textContent = 'Hide Advanced Stats';
-        updateAdvancedStats();
-      }
-    });
-    
-    // Play a round
-    function playRound(humanMove) {
-      // Disable buttons during AI "thinking"
-      document.querySelectorAll('.choice').forEach(btn => {
-        btn.disabled = true;
-      });
-      
-      // Show AI thinking
-      aiThinkingEl.textContent = "MegaMind is analyzing your patterns...";
-      
-      // Small delay to simulate thinking
-      setTimeout(() => {
-        const aiMove = ai.getMove();
-        const result = getResult(humanMove, aiMove);
-        
-        // Record result
-        ai.recordResult(humanMove, aiMove, result);
-        
-        // Update game state
-        gameState.total++;
-        if (result === 'win') gameState.wins++;
-        else if (result === 'lose') gameState.losses++;
-        else gameState.ties++;
-        
-        // Update UI
-        movesEl.textContent = `You: ${getMoveEmoji(humanMove)} vs MegaMind: ${getMoveEmoji(aiMove)}`;
-        resultEl.textContent = `You ${result}!`;
-        resultEl.className = 'result ' + result;
-        winsEl.textContent = gameState.wins;
-        lossesEl.textContent = gameState.losses;
-        tiesEl.textContent = gameState.ties;
-        
-        // Update confidence meter
-        const stats = ai.getStats();
-        confidenceLevelEl.style.width = `${stats.confidence}%`;
-        
-        // Update advanced stats if visible
-        if (advancedStatsEl.style.display === 'block') {
-          updateAdvancedStats();
-        }
-        
-        // Clear thinking message and re-enable buttons
-        aiThinkingEl.textContent = "";
-        document.querySelectorAll('.choice').forEach(btn => {
-          btn.disabled = false;
-        });
-      }, 500 + Math.random() * 500); // Random delay between 500-1000ms
-    }
-    
-    // Update advanced stats display
-    function updateAdvancedStats() {
-      const stats = ai.getStats();
-      document.getElementById('predictability').textContent = stats.predictability;
-      document.getElementById('aggression').textContent = stats.aggression;
-      document.getElementById('habitStrength').textContent = stats.habitStrength;
-      document.getElementById('confidence').textContent = stats.confidence;
-      document.getElementById('rockCount').textContent = stats.rockCount;
-      document.getElementById('paperCount').textContent = stats.paperCount;
-      document.getElementById('scissorsCount').textContent = stats.scissorsCount;
-      document.getElementById('rockPercent').textContent = stats.rockPercent;
-      document.getElementById('paperPercent').textContent = stats.paperPercent;
-      document.getElementById('scissorsPercent').textContent = stats.scissorsPercent;
-    }
-    
-    // Determine winner
-    function getResult(humanMove, aiMove) {
-      if (humanMove === aiMove) return 'tie';
-      
-      if (
-        (humanMove === 'rock' && aiMove === 'scissors') ||
-        (humanMove === 'paper' && aiMove === 'rock') ||
-        (humanMove === 'scissors' && aiMove === 'paper')
-      ) {
-        return 'win';
-      }
-      
-      return 'lose';
-    }
-    
-    // Get emoji for move
-    function getMoveEmoji(move) {
-      if (move === 'rock') return '✊';
-      if (move === 'paper') return '✋';
-      return '✌';
-    }
-  </script>
+    <script src="ai.js"></script>
 </body>
 </html>
