@@ -106,6 +106,10 @@
             font-weight: bold;
             color: #1a73e8;
         }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
@@ -114,72 +118,78 @@
         <p>Deep Learning AI that learns from your moves and global patterns</p>
     </div>
 
-    <div class="game-container">
-        <div class="game-area">
-            <h2>Play Against AI</h2>
-            <div class="choices">
-                <button id="rock">✊</button>
-                <button id="paper">✋</button>
-                <button id="scissors">✌️</button>
-            </div>
-            <div class="result">
-                <p>AI chose: <span id="ai-choice">...</span></p>
-                <p>Result: <span id="round-result">Play a move!</span></p>
-            </div>
-            <div class="stats">
-                <div class="stat-box">
-                    <h3>Your Stats</h3>
-                    <p>Games: <span id="user-games">0</span></p>
-                    <p>Wins: <span id="user-wins">0</span></p>
-                </div>
-                <div class="stat-box">
-                    <h3>AI Stats</h3>
-                    <p>Accuracy: <span id="ai-accuracy">0%</span></p>
-                    <p>Win Rate: <span id="ai-win-rate">0%</span></p>
-                </div>
-            </div>
-        </div>
+    <div id="loading" class="loading">
+        <p>Loading AI models... Please wait</p>
+    </div>
 
-        <div class="training-panel">
-            <h2>AI Training Data</h2>
-            <div class="model-tabs">
-                <button class="model-tab active" onclick="showModel('user')">Your Model</button>
-                <button class="model-tab" onclick="showModel('global')">Global Model</button>
-            </div>
-            
-            <div id="user-model" class="model-content active">
-                <div class="chart-container">
-                    <canvas id="user-loss-chart"></canvas>
+    <div id="game-content" style="display:none;">
+        <div class="game-container">
+            <div class="game-area">
+                <h2>Play Against AI</h2>
+                <div class="choices">
+                    <button id="rock">✊</button>
+                    <button id="paper">✋</button>
+                    <button id="scissors">✌️</button>
                 </div>
-                <div class="chart-container">
-                    <canvas id="user-accuracy-chart"></canvas>
-                </div>
-                <div class="stats">
-                    <div class="stat-box">
-                        <p>Training Cycles: <span id="user-cycles">0</span></p>
-                    </div>
-                    <div class="stat-box">
-                        <p>Current Accuracy: <span id="user-current-accuracy">0%</span></p>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="global-model" class="model-content">
-                <div class="chart-container">
-                    <canvas id="global-loss-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <canvas id="global-accuracy-chart"></canvas>
+                <div class="result">
+                    <p>AI chose: <span id="ai-choice">...</span></p>
+                    <p>Result: <span id="round-result">Play a move!</span></p>
                 </div>
                 <div class="stats">
                     <div class="stat-box">
-                        <p>Training Cycles: <span id="global-cycles">0</span></p>
+                        <h3>Your Stats</h3>
+                        <p>Games: <span id="user-games">0</span></p>
+                        <p>Wins: <span id="user-wins">0</span></p>
                     </div>
                     <div class="stat-box">
-                        <p>Current Accuracy: <span id="global-current-accuracy">0%</span></p>
+                        <h3>AI Stats</h3>
+                        <p>Accuracy: <span id="ai-accuracy">0%</span></p>
+                        <p>Win Rate: <span id="ai-win-rate">0%</span></p>
                     </div>
-                    <div class="stat-box">
-                        <p>Total Games: <span id="global-total-games">0</span></p>
+                </div>
+            </div>
+
+            <div class="training-panel">
+                <h2>AI Training Data</h2>
+                <div class="model-tabs">
+                    <button class="model-tab active" onclick="showModel('user')">Your Model</button>
+                    <button class="model-tab" onclick="showModel('global')">Global Model</button>
+                </div>
+                
+                <div id="user-model" class="model-content active">
+                    <div class="chart-container">
+                        <canvas id="user-loss-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="user-accuracy-chart"></canvas>
+                    </div>
+                    <div class="stats">
+                        <div class="stat-box">
+                            <p>Training Cycles: <span id="user-cycles">0</span></p>
+                        </div>
+                        <div class="stat-box">
+                            <p>Current Accuracy: <span id="user-current-accuracy">0%</span></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="global-model" class="model-content">
+                    <div class="chart-container">
+                        <canvas id="global-loss-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="global-accuracy-chart"></canvas>
+                    </div>
+                    <div class="stats">
+                        <div class="stat-box">
+                            <p>Training Cycles: <span id="global-cycles">0</span></p>
+                        </div>
+                        <div class="stat-box">
+                            <p>Current Accuracy: <span id="global-current-accuracy">0%</span></p>
+                        </div>
+                        <div class="stat-box">
+                            <p>Total Games: <span id="global-total-games">0</span></p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -202,7 +212,8 @@
             userChartLoss: null,
             userChartAccuracy: null,
             globalChartLoss: null,
-            globalChartAccuracy: null
+            globalChartAccuracy: null,
+            modelsReady: false
         };
 
         // Move encoding
@@ -211,39 +222,57 @@
 
         // Initialize when TensorFlow is ready
         async function initialize() {
-            await tf.ready();
+            // Show loading message
+            document.getElementById('loading').textContent = 'Loading AI models... Please wait';
             
-            // Create models
-            gameState.userModel = createModel();
-            gameState.globalModel = createModel();
-            
-            // Try to load from localStorage
-            loadModels();
-            
-            // Initialize charts
-            initCharts();
-            
-            // Set up event listeners
-            document.getElementById('rock').addEventListener('click', () => playRound('rock'));
-            document.getElementById('paper').addEventListener('click', () => playRound('paper'));
-            document.getElementById('scissors').addEventListener('click', () => playRound('scissors'));
-            
-            console.log('Game initialized');
+            try {
+                await tf.ready();
+                
+                // Create models
+                gameState.userModel = createModel();
+                gameState.globalModel = createModel();
+                
+                // Try to load from localStorage
+                await loadModels();
+                
+                // Initialize charts
+                initCharts();
+                
+                // Set up event listeners
+                document.getElementById('rock').addEventListener('click', () => playRound('rock'));
+                document.getElementById('paper').addEventListener('click', () => playRound('paper'));
+                document.getElementById('scissors').addEventListener('click', () => playRound('scissors'));
+                
+                // Mark models as ready
+                gameState.modelsReady = true;
+                
+                // Hide loading and show game
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('game-content').style.display = 'block';
+                
+                console.log('Game initialized');
+            } catch (error) {
+                document.getElementById('loading').innerHTML = `
+                    <p>Error loading AI models. Please refresh the page.</p>
+                    <p>${error.message}</p>
+                `;
+                console.error('Initialization error:', error);
+            }
         }
 
         // Create neural network model
         function createModel() {
             const model = tf.sequential();
             model.add(tf.layers.dense({
-                units: 32,
+                units: 16,  // Reduced for faster training
                 activation: 'relu',
-                inputShape: [10]  // Last 3 moves from user and AI + 4 context features
+                inputShape: [10]
             }));
-            model.add(tf.layers.dense({ units: 16, activation: 'relu' }));
+            model.add(tf.layers.dense({ units: 8, activation: 'relu' }));
             model.add(tf.layers.dense({ units: 3, activation: 'softmax' }));
             
             model.compile({
-                optimizer: 'adam',
+                optimizer: tf.train.adam(0.001),
                 loss: 'categoricalCrossentropy',
                 metrics: ['accuracy']
             });
@@ -253,9 +282,19 @@
 
         // Play a round of RPS
         async function playRound(userMove) {
-            // Get AI prediction
-            const aiPrediction = await predictAiMove(userMove);
-            const aiMove = MOVES[aiPrediction];
+            if (!gameState.modelsReady) {
+                alert("AI models are still loading. Please wait a moment.");
+                return;
+            }
+            
+            // Get AI move (start with random if no history)
+            let aiMove;
+            if (gameState.userMoves.length < 3) {
+                aiMove = MOVES[Math.floor(Math.random() * 3)];
+            } else {
+                const aiPrediction = await predictAiMove(userMove);
+                aiMove = MOVES[aiPrediction];
+            }
             
             // Determine winner
             const result = determineWinner(userMove, aiMove);
@@ -272,44 +311,48 @@
             // Update UI
             updateGameUI(userMove, aiMove, result);
             
-            // Train models (async)
-            setTimeout(() => {
-                trainModels();
-            }, 0);
+            // Train models after enough data is collected
+            if (gameState.userMoves.length >= 5) {
+                setTimeout(() => {
+                    trainModels();
+                }, 0);
+            }
         }
 
         // Predict AI move
         async function predictAiMove(userMove) {
-            // Prepare input data (last 3 moves + current context)
+            // Prepare input data
             const inputData = prepareInputData(userMove);
+            const tensor = tf.tensor2d([inputData]);
             
-            // Get predictions from both models
-            const userPred = gameState.userModel.predict(tf.tensor2d([inputData])).arraySync()[0];
-            const globalPred = gameState.globalModel.predict(tf.tensor2d([inputData])).arraySync()[0];
+            // Get predictions
+            const userPred = await gameState.userModel.predict(tensor).array();
+            const globalPred = await gameState.globalModel.predict(tensor).array();
             
-            // Blend predictions (70% user model, 30% global model)
+            // Clean up
+            tensor.dispose();
+            
+            // Blend predictions
             const blendedPred = [
-                0.7 * userPred[0] + 0.3 * globalPred[0],
-                0.7 * userPred[1] + 0.3 * globalPred[1],
-                0.7 * userPred[2] + 0.3 * globalPred[2]
+                0.7 * userPred[0][0] + 0.3 * globalPred[0][0],
+                0.7 * userPred[0][1] + 0.3 * globalPred[0][1],
+                0.7 * userPred[0][2] + 0.3 * globalPred[0][2]
             ];
             
-            // Choose move (sometimes random for exploration)
-            if (Math.random() < 0.1) {
-                return Math.floor(Math.random() * 3); // 10% random exploration
+            // Sometimes random for exploration
+            if (Math.random() < 0.15) {
+                return Math.floor(Math.random() * 3);
             }
             
-            // Return the index of highest probability
             return blendedPred.indexOf(Math.max(...blendedPred));
         }
 
         // Prepare input data for prediction
         function prepareInputData(currentUserMove) {
-            // Last 3 moves from user and AI (one-hot encoded)
-            const historyLength = 3;
             const input = [];
+            const historyLength = 3;
             
-            // Add move history (padded with zeros if not enough history)
+            // Add move history
             for (let i = Math.max(0, gameState.userMoves.length - historyLength); i < gameState.userMoves.length; i++) {
                 input.push(...oneHotEncode(gameState.userMoves[i]));
                 input.push(...oneHotEncode(gameState.aiMoves[i]));
@@ -317,17 +360,17 @@
             
             // Pad with zeros if not enough history
             while (input.length < historyLength * 6) {
-                input.push(0, 0, 0); // Padding for each missing move
+                input.push(0, 0, 0);
             }
             
             // Add current user move
             input.push(...oneHotEncode(currentUserMove));
             
-            // Add some context features
-            input.push(gameState.userWins / (gameState.userMoves.length || 1)); // User win ratio
-            input.push(gameState.aiWins / (gameState.userMoves.length || 1)); // AI win ratio
-            input.push(Math.random()); // Noise for variability
-            input.push((gameState.userMoves.length % 10) / 10); // Game count feature
+            // Add context features
+            input.push(gameState.userWins / (gameState.userMoves.length || 1));
+            input.push(gameState.aiWins / (gameState.userMoves.length || 1));
+            input.push(Math.random());
+            input.push((gameState.userMoves.length % 10) / 10);
             
             return input;
         }
@@ -359,17 +402,15 @@
 
         // Train both models
         async function trainModels() {
-            if (gameState.userMoves.length < 5) return; // Need some data
-            
             // Prepare training data
             const { inputs, labels } = prepareTrainingData();
+            const inputTensor = tf.tensor2d(inputs);
+            const labelTensor = tf.tensor2d(labels);
             
-            // Train user model
-            const userHistory = await gameState.userModel.fit(
-                tf.tensor2d(inputs),
-                tf.tensor2d(labels),
-                {
-                    epochs: 5,
+            try {
+                // Train user model
+                const userHistory = await gameState.userModel.fit(inputTensor, labelTensor, {
+                    epochs: 3,
                     batchSize: 4,
                     callbacks: {
                         onEpochEnd: (epoch, logs) => {
@@ -378,42 +419,39 @@
                             updateUserCharts();
                         }
                     }
-                }
-            );
-            
-            // Update user training cycles
-            document.getElementById('user-cycles').textContent = 
-                parseInt(document.getElementById('user-cycles').textContent) + 5;
-            document.getElementById('user-current-accuracy').textContent = 
-                (userHistory.history.acc[userHistory.history.acc.length - 1] * 100).toFixed(1) + '%';
-            
-            // Train global model (less frequently)
-            if (gameState.userMoves.length % 10 === 0) {
-                const globalHistory = await gameState.globalModel.fit(
-                    tf.tensor2d(inputs),
-                    tf.tensor2d(labels),
-                    {
-                        epochs: 3,
-                        batchSize: 8,
-                        callbacks: {
-                            onEpochEnd: (epoch, logs) => {
-                                gameState.globalTrainingHistory.loss.push(logs.loss);
-                                gameState.globalTrainingHistory.accuracy.push(logs.acc);
-                                updateGlobalCharts();
-                            }
-                        }
-                    }
-                );
+                });
                 
-                // Update global training cycles
-                document.getElementById('global-cycles').textContent = 
-                    parseInt(document.getElementById('global-cycles').textContent) + 3;
-                document.getElementById('global-current-accuracy').textContent = 
-                    (globalHistory.history.acc[globalHistory.history.acc.length - 1] * 100).toFixed(1) + '%';
+                // Update user training UI
+                document.getElementById('user-cycles').textContent = 
+                    parseInt(document.getElementById('user-cycles').textContent) + 3;
+                document.getElementById('user-current-accuracy').textContent = 
+                    (userHistory.history.acc[userHistory.history.acc.length - 1] * 100).toFixed(1) + '%';
+                
+                // Train global model less frequently
+                if (gameState.userMoves.length % 5 === 0) {
+                    const globalHistory = await gameState.globalModel.fit(inputTensor, labelTensor, {
+                        epochs: 2,
+                        batchSize: 4
+                    });
+                    
+                    // Update global training UI
+                    document.getElementById('global-cycles').textContent = 
+                        parseInt(document.getElementById('global-cycles').textContent) + 2;
+                    document.getElementById('global-current-accuracy').textContent = 
+                        (globalHistory.history.acc[globalHistory.history.acc.length - 1] * 100).toFixed(1) + '%';
+                    
+                    gameState.globalTrainingHistory.loss.push(...globalHistory.history.loss);
+                    gameState.globalTrainingHistory.accuracy.push(...globalHistory.history.acc);
+                    updateGlobalCharts();
+                }
+                
+                // Save models
+                await saveModels();
+            } finally {
+                // Clean up tensors
+                inputTensor.dispose();
+                labelTensor.dispose();
             }
-            
-            // Save models to localStorage
-            saveModels();
         }
 
         // Prepare training data
@@ -421,29 +459,25 @@
             const inputs = [];
             const labels = [];
             
-            // We'll train on sequences where we know the next move
             for (let i = 3; i < gameState.userMoves.length; i++) {
-                // Create input from previous moves
                 const input = [];
+                
+                // Add previous moves
                 for (let j = i - 3; j < i; j++) {
                     if (j >= 0) {
                         input.push(...oneHotEncode(gameState.userMoves[j]));
                         input.push(...oneHotEncode(gameState.aiMoves[j]));
                     } else {
-                        input.push(0, 0, 0, 0, 0, 0); // Padding
+                        input.push(0, 0, 0, 0, 0, 0);
                     }
                 }
                 
-                // Add context features
+                // Add context
                 const winRatio = gameState.userWins / i;
                 input.push(winRatio, 1 - winRatio, Math.random(), (i % 10) / 10);
                 
                 inputs.push(input);
-                
-                // Label is the next AI move (what would have been correct)
-                const nextUserMove = gameState.userMoves[i];
-                const counterMove = getCounterMove(nextUserMove);
-                labels.push(oneHotEncode(counterMove));
+                labels.push(oneHotEncode(getCounterMove(gameState.userMoves[i])));
             }
             
             return { inputs, labels };
@@ -453,8 +487,7 @@
         function getCounterMove(move) {
             if (move === 'rock') return 'paper';
             if (move === 'paper') return 'scissors';
-            if (move === 'scissors') return 'rock';
-            return MOVES[Math.floor(Math.random() * 3)];
+            return 'rock';
         }
 
         // Update game UI
@@ -481,12 +514,11 @@
             document.getElementById('user-games').textContent = gameState.userMoves.length;
             document.getElementById('user-wins').textContent = gameState.userWins;
             
-            const aiAccuracy = gameState.aiWins / (gameState.userMoves.length || 1);
+            const totalGames = gameState.userMoves.length || 1;
+            const aiAccuracy = gameState.aiWins / totalGames;
             document.getElementById('ai-accuracy').textContent = `${(aiAccuracy * 100).toFixed(1)}%`;
             document.getElementById('ai-win-rate').textContent = `${(aiAccuracy * 100).toFixed(1)}%`;
-            
-            // Update global stats
-            document.getElementById('global-total-games').textContent = gameState.userMoves.length;
+            document.getElementById('global-total-games').textContent = totalGames;
         }
 
         // Initialize charts
@@ -625,10 +657,10 @@
         async function saveModels() {
             try {
                 // Save user model
-                const userModelArtifacts = await gameState.userModel.save('localstorage://user-rps-model');
+                await gameState.userModel.save('localstorage://user-rps-model');
                 
                 // Save global model
-                const globalModelArtifacts = await gameState.globalModel.save('localstorage://global-rps-model');
+                await gameState.globalModel.save('localstorage://global-rps-model');
                 
                 // Save game state
                 const gameStateToSave = {
