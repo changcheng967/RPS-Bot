@@ -3,56 +3,97 @@
 <head>
   <title>RPS AI</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-    .choices { margin: 20px; }
-    button { padding: 15px 25px; font-size: 18px; margin: 0 10px; cursor: pointer; }
-    #result { font-size: 24px; margin: 20px 0; min-height: 30px; }
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    .game-area { display: flex; justify-content: space-between; margin-top: 30px; }
+    button { padding: 15px 25px; font-size: 18px; margin: 10px; cursor: pointer; }
+    #result { font-size: 24px; margin: 30px 0; text-align: center; }
+    .stats { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+    .progress { height: 20px; background: #ddd; border-radius: 4px; margin: 10px 0; }
+    .progress-bar { height: 100%; background: #4285f4; border-radius: 4px; }
   </style>
 </head>
 <body>
   <h1>Rock Paper Scissors AI</h1>
-  <div class="choices">
-    <button onclick="play('rock')">✊ Rock</button>
-    <button onclick="play('paper')">✋ Paper</button>
-    <button onclick="play('scissors')">✌️ Scissors</button>
+  <div class="game-area">
+    <div>
+      <h3>Your Move</h3>
+      <button onclick="play('rock')">✊ Rock</button><br>
+      <button onclick="play('paper')">✋ Paper</button><br>
+      <button onclick="play('scissors')">✌️ Scissors</button>
+    </div>
+    
+    <div id="result">
+      <div id="human-move"></div>
+      <div id="ai-move"></div>
+      <div id="outcome"></div>
+    </div>
+    
+    <div class="stats">
+      <h3>AI Training Stats</h3>
+      <div>Your Training Cycles: <span id="user-cycles">0</span></div>
+      <div>Global Training Cycles: <span id="global-cycles">0</span></div>
+      <div>AI Win Rate: <span id="win-rate">0</span>%</div>
+      <div>Total Games: <span id="total-games">0</span></div>
+    </div>
   </div>
-  <div id="result"></div>
-  <div id="stats"></div>
 
   <script>
     let userId = 'user_' + Math.random().toString(36).substr(2, 9);
-    let history = [];
-
+    let trainingCycles = 0;
+    
     // Initialize user
     fetch('/api/user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId })
-    });
+    }).then(res => res.json())
+      .then(data => {
+        trainingCycles = data.trainingCycles || 0;
+        updateStats();
+      });
 
     function play(humanMove) {
+      document.getElementById('human-move').textContent = `You chose: ${humanMove}`;
+      
       fetch('/api/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, humanMove, history })
-      })
-      .then(res => res.json())
-      .then(data => {
-        const outcome = data.outcome;
-        document.getElementById('result').innerHTML = `
-          You: ${humanMove} | AI: ${data.aiMove} | 
-          ${outcome === 'tie' ? 'Tie!' : outcome === 'human' ? 'You win!' : 'AI wins!'}
-        `;
-
-        // Save game
-        history.push({humanMove, aiMove: data.aiMove});
-        fetch('/api/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, humanMove, aiMove: data.aiMove, outcome, history })
+        body: JSON.stringify({ userId, humanMove })
+      }).then(res => res.json())
+        .then(data => {
+          document.getElementById('ai-move').textContent = `AI chose: ${data.aiMove}`;
+          document.getElementById('outcome').textContent = 
+            data.outcome === 'tie' ? "It's a tie!" : 
+            data.outcome === 'human' ? "You win!" : "AI wins!";
+          
+          // Update training stats
+          trainingCycles = data.trainingStats.userCycles;
+          updateStats(data.trainingStats);
+          
+          // Save game
+          fetch('/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, humanMove, aiMove: data.aiMove, outcome: data.outcome })
+          });
         });
-      });
     }
+
+    function updateStats(stats) {
+      if (stats) {
+        document.getElementById('global-cycles').textContent = stats.training_cycles || 0;
+        document.getElementById('total-games').textContent = stats.total_games || 0;
+        const winRate = stats.total_games ? 
+          Math.round((stats.ai_wins / stats.total_games) * 100) : 0;
+        document.getElementById('win-rate').textContent = winRate;
+      }
+      document.getElementById('user-cycles').textContent = trainingCycles;
+    }
+
+    // Load initial stats
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(updateStats);
   </script>
 </body>
 </html>
