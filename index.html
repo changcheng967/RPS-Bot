@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced RPS AI</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="ai-system.js" type="module"></script>
+    <script src="stats-manager.js" type="module"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Game Arena -->
+        <div class="game-arena">
+            <h1>Rock Paper Scissors AI</h1>
+            <div class="choices">
+                <button class="choice-btn" data-move="rock">✊ Rock</button>
+                <button class="choice-btn" data-move="paper">✋ Paper</button>
+                <button class="choice-btn" data-move="scissors">✌️ Scissors</button>
+            </div>
+            <div class="result-display">
+                <div class="move-display">
+                    <span id="user-move"></span>
+                    <span class="vs">vs</span>
+                    <span id="ai-move"></span>
+                </div>
+                <div id="outcome" class="outcome"></div>
+            </div>
+        </div>
+
+        <!-- Training Dashboard -->
+        <div class="training-dashboard">
+            <div class="stats-panel">
+                <h2>Training Statistics</h2>
+                <div class="stat-item">
+                    <span class="stat-label">Global Training Cycles:</span>
+                    <span id="global-cycles" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Your Training Contribution:</span>
+                    <span id="user-contributions" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">AI Win Rate:</span>
+                    <span id="ai-winrate" class="stat-value">0%</span>
+                    <div class="progress-bar">
+                        <div id="ai-winrate-bar" class="progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="confidence-panel">
+                <h2>AI Prediction Confidence</h2>
+                <div class="confidence-meter">
+                    <div class="confidence-item">
+                        <span>Rock</span>
+                        <div class="meter">
+                            <div id="rock-confidence" class="meter-fill" style="width: 33%"></div>
+                            <span id="rock-percent">33%</span>
+                        </div>
+                    </div>
+                    <div class="confidence-item">
+                        <span>Paper</span>
+                        <div class="meter">
+                            <div id="paper-confidence" class="meter-fill" style="width: 33%"></div>
+                            <span id="paper-percent">33%</span>
+                        </div>
+                    </div>
+                    <div class="confidence-item">
+                        <span>Scissors</span>
+                        <div class="meter">
+                            <div id="scissors-confidence" class="meter-fill" style="width: 33%"></div>
+                            <span id="scissors-percent">33%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="performance-chart">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
