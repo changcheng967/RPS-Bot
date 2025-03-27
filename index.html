@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RPS AI</title>
+    <title>RPS AI with Global Learning</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -22,10 +22,6 @@
             border-radius: 50%;
             cursor: pointer;
             margin: 10px;
-            transition: transform 0.2s;
-        }
-        .choices button:hover {
-            transform: scale(1.1);
         }
         #result {
             font-size: 24px;
@@ -33,31 +29,36 @@
             min-height: 60px;
         }
         .stats {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
             margin: 20px 0;
-            flex-wrap: wrap;
         }
         .stat-box {
             padding: 15px;
             background: #f0f0f0;
             border-radius: 5px;
-            min-width: 120px;
+        }
+        .win { color: green; }
+        .lose { color: red; }
+        .draw { color: orange; }
+        #global-data {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f4f8;
+            border-radius: 5px;
         }
         #loading {
-            margin: 50px 0;
+            margin: 30px 0;
             font-size: 18px;
         }
-        .win { color: #2ecc71; }
-        .lose { color: #e74c3c; }
-        .draw { color: #f39c12; }
     </style>
 </head>
 <body>
     <h1>Rock Paper Scissors AI</h1>
-    
-    <div id="loading">Loading AI...</div>
+    <p>Global Learning Edition</p>
+
+    <div id="loading">Initializing AI...</div>
     
     <div id="game" style="display:none;">
         <div class="choices">
@@ -80,12 +81,20 @@
                 <p>Games: <span id="total-games">0</span></p>
             </div>
         </div>
+        
+        <div id="global-data">
+            <h3>Global Model</h3>
+            <p>Training Cycles: <span id="global-cycles">0</span></p>
+            <p>Total Contributors: <span id="contributors">0</span></p>
+            <p>Total Games Trained: <span id="global-games">0</span></p>
+        </div>
     </div>
 
     <script>
-        // Configuration - will be replaced during deployment
-        const SUPABASE_URL = process.env.SUPABASE_URL || 'https://orpljgijsehehkbnfqpk.supabase.co';
-        const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycGxqZ2lqc2VoZWhrYm5mcXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyMTkzMTIsImV4cCI6MjA1Njc5NTMxMn0.QcdyYLwNlOGwN6yi67Sm6oEEX86AOtudP24yVlodpKg';
+        // Configuration - replace with your Supabase credentials
+        const SUPABASE_URL = 'https://orpljgijsehehkbnfqpk.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycGxqZ2lqc2VoZWhrYm5mcXBrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyMTkzMTIsImV4cCI6MjA1Njc5NTMxMn0.QcdyYLwNlOGwN6yi67Sm6oEEX86AOtudP24yVlodpKg';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
         // Game state
         const game = {
@@ -94,48 +103,50 @@
             draws: 0,
             model: null,
             ready: false,
-            supabase: null
+            trainingData: [],
+            globalStats: {
+                trainingCycles: 0,
+                contributors: 0,
+                totalGames: 0
+            }
         };
         
         // Initialize game
         async function init() {
             try {
-                // Initialize Supabase with environment variables
-                game.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                
-                // Load TF.js
-                await tf.ready();
-                
-                // Create model
+                // Create a simple model
                 game.model = createModel();
                 
-                // Load saved data
-                await loadData();
+                // Load global model from Supabase
+                await loadGlobalModel();
                 
-                // Setup UI
-                setupControls();
+                // Setup event listeners
+                document.getElementById('rock').onclick = () => playRound('rock');
+                document.getElementById('paper').onclick = () => playRound('paper');
+                document.getElementById('scissors').onclick = () => playRound('scissors');
                 
-                // Show game
+                // Show game UI
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('game').style.display = 'block';
                 game.ready = true;
                 
+                console.log("AI ready!");
             } catch (error) {
-                document.getElementById('loading').textContent = 'Error loading. Please refresh.';
-                console.error(error);
+                document.getElementById('loading').textContent = 'Error loading AI. Please refresh.';
+                console.error("Initialization error:", error);
             }
         }
         
-        // Create neural network
+        // Create a simple neural network
         function createModel() {
             const model = tf.sequential();
             model.add(tf.layers.dense({
                 units: 8,
                 activation: 'relu',
-                inputShape: [4]
+                inputShape: [6] // Last 2 moves from player and AI
             }));
             model.add(tf.layers.dense({
-                units: 3,
+                units: 3, // Output: rock, paper, scissors
                 activation: 'softmax'
             }));
             model.compile({
@@ -145,75 +156,109 @@
             return model;
         }
         
-        // Setup game controls
-        function setupControls() {
-            document.getElementById('rock').onclick = () => play('rock');
-            document.getElementById('paper').onclick = () => play('paper');
-            document.getElementById('scissors').onclick = () => play('scissors');
-        }
-        
         // Play a round
-        async function play(userMove) {
+        async function playRound(playerMove) {
             if (!game.ready) return;
             
             // Get AI move
-            const aiMove = await getAiMove(userMove);
+            const aiMove = await getAiMove(playerMove);
             
             // Determine result
-            const result = getResult(userMove, aiMove);
-            updateGame(result);
+            const result = getResult(playerMove, aiMove);
             
-            // Train after 5 moves
-            if (game.userWins + game.userLosses + game.draws >= 5) {
+            // Update game state
+            updateGameState(playerMove, aiMove, result);
+            
+            // Add to training data
+            game.trainingData.push({
+                input: prepareInput(playerMove),
+                output: oneHotEncode(getCounterMove(playerMove))
+            });
+            
+            // Train periodically
+            if (game.trainingData.length >= 5) {
                 await trainModel();
+                game.trainingData = []; // Clear training data
             }
         }
         
         // Get AI move
-        async function getAiMove(userMove) {
+        async function getAiMove(playerMove) {
             const moves = ['rock', 'paper', 'scissors'];
             
-            // Start with random moves
+            // First few moves are random
             if (game.userWins + game.userLosses < 3) {
                 return moves[Math.floor(Math.random() * 3)];
             }
             
-            // Predict using model
-            const input = createInput(userMove);
-            const tensor = tf.tensor2d([input]);
-            
-            const prediction = await game.model.predict(tensor).array();
-            tensor.dispose();
-            
-            // Sometimes random for exploration
-            if (Math.random() < 0.1) return moves[Math.floor(Math.random() * 3)];
-            
-            return moves[prediction[0].indexOf(Math.max(...prediction[0]))];
+            try {
+                // Prepare input
+                const input = prepareInput(playerMove);
+                const tensor = tf.tensor2d([input]);
+                
+                // Get prediction
+                const prediction = await game.model.predict(tensor).array();
+                tensor.dispose();
+                
+                // Choose move (with some randomness)
+                if (Math.random() < 0.1) {
+                    return moves[Math.floor(Math.random() * 3)]; // 10% random exploration
+                }
+                
+                return moves[prediction[0].indexOf(Math.max(...prediction[0]))];
+            } catch (error) {
+                console.error("Prediction error:", error);
+                return moves[Math.floor(Math.random() * 3)]; // Fallback to random
+            }
         }
         
-        // Create input for prediction
-        function createInput(userMove) {
-            // Simple input: last move and win ratio
-            const input = [
-                userMove === 'rock' ? 1 : 0,
-                userMove === 'paper' ? 1 : 0,
-                userMove === 'scissors' ? 1 : 0,
-                game.userWins / (game.userWins + game.userLosses || 1)
-            ];
+        // Prepare input for the neural network
+        function prepareInput(playerMove) {
+            // Use last 2 moves as context
+            const history = game.trainingData.slice(-2);
+            const input = [];
+            
+            // Add history (pad with zeros if not enough history)
+            history.forEach(item => {
+                input.push(...item.input.slice(0, 3)); // Player move
+                input.push(...item.input.slice(3, 6)); // AI move
+            });
+            
+            // Pad if not enough history
+            while (input.length < 6) input.push(0);
+            
             return input;
         }
         
-        // Determine winner
-        function getResult(user, ai) {
-            if (user === ai) return 'draw';
-            if ((user === 'rock' && ai === 'scissors') ||
-                (user === 'paper' && ai === 'rock') ||
-                (user === 'scissors' && ai === 'paper')) return 'win';
+        // One-hot encode moves
+        function oneHotEncode(move) {
+            return [
+                move === 'rock' ? 1 : 0,
+                move === 'paper' ? 1 : 0,
+                move === 'scissors' ? 1 : 0
+            ];
+        }
+        
+        // Determine game result
+        function getResult(player, ai) {
+            if (player === ai) return 'draw';
+            if ((player === 'rock' && ai === 'scissors') ||
+                (player === 'paper' && ai === 'rock') ||
+                (player === 'scissors' && ai === 'paper')) return 'win';
             return 'lose';
         }
         
-        // Update game state
-        function updateGame(result) {
+        // Get counter move
+        function getCounterMove(move) {
+            return {
+                rock: 'paper',
+                paper: 'scissors',
+                scissors: 'rock'
+            }[move];
+        }
+        
+        // Update game state and UI
+        function updateGameState(playerMove, aiMove, result) {
             if (result === 'win') game.userWins++;
             if (result === 'lose') game.userLosses++;
             if (result === 'draw') game.draws++;
@@ -222,81 +267,122 @@
             document.getElementById('user-wins').textContent = game.userWins;
             document.getElementById('user-losses').textContent = game.userLosses;
             
-            const total = game.userWins + game.userLosses || 1;
-            const winRate = Math.round((game.userLosses / total) * 100);
-            document.getElementById('ai-win-rate').textContent = winRate + '%';
+            const totalGames = game.userWins + game.userLosses;
+            const winRate = totalGames > 0 ? Math.round((game.userLosses / totalGames) * 100) : 0;
+            document.getElementById('ai-win-rate').textContent = `${winRate}%`;
             document.getElementById('total-games').textContent = game.userWins + game.userLosses + game.draws;
             
-            // Save game state
-            localStorage.setItem('rps-game', JSON.stringify({
-                wins: game.userWins,
-                losses: game.userLosses,
-                draws: game.draws
-            }));
+            // Show result
+            document.getElementById('result').innerHTML = `
+                You played <strong>${playerMove}</strong><br>
+                AI played <strong>${aiMove}</strong><br>
+                <span class="${result}">${result.toUpperCase()}!</span>
+            `;
         }
         
-        // Train model
+        // Train the model
         async function trainModel() {
-            // In a real app, implement proper training here
-            // For this example, we'll just simulate training
-            console.log("Training model...");
-            
-            // Sync with Supabase every 10 games
-            if ((game.userWins + game.userLosses) % 10 === 0) {
-                await syncWithSupabase();
+            try {
+                // Prepare training data
+                const inputs = game.trainingData.map(item => item.input);
+                const labels = game.trainingData.map(item => item.output);
+                
+                // Train locally
+                await game.model.fit(
+                    tf.tensor2d(inputs),
+                    tf.tensor2d(labels),
+                    {
+                        epochs: 3,
+                        batchSize: 2,
+                        verbose: 0
+                    }
+                );
+                
+                // Update global stats
+                game.globalStats.trainingCycles++;
+                game.globalStats.totalGames += game.trainingData.length;
+                
+                // Sync with Supabase every 5 training cycles
+                if (game.globalStats.trainingCycles % 5 === 0) {
+                    await syncGlobalModel();
+                }
+                
+                // Update UI
+                updateGlobalStats();
+                
+            } catch (error) {
+                console.error("Training error:", error);
             }
         }
         
-        // Load data
-        async function loadData() {
-            // Load local data
-            const saved = localStorage.getItem('rps-game');
-            if (saved) {
-                const data = JSON.parse(saved);
-                game.userWins = data.wins || 0;
-                game.userLosses = data.losses || 0;
-                game.draws = data.draws || 0;
-            }
-            
-            // Try to load global model from Supabase
+        // Load global model from Supabase
+        async function loadGlobalModel() {
             try {
-                const { data } = await game.supabase
+                const { data, error } = await supabase
                     .from('global_models')
-                    .select('model_data,total_games')
+                    .select('model_data, training_cycles, contributors, total_games')
                     .eq('name', 'rps_global')
                     .single();
                 
-                if (data?.model_data) {
+                if (data && data.model_data) {
+                    // Load model artifacts
                     const artifacts = JSON.parse(atob(data.model_data));
                     await game.model.load(artifacts);
-                    document.getElementById('total-games').textContent = data.total_games || 0;
+                    
+                    // Update global stats
+                    game.globalStats = {
+                        trainingCycles: data.training_cycles || 0,
+                        contributors: data.contributors || 0,
+                        totalGames: data.total_games || 0
+                    };
+                    
+                    updateGlobalStats();
+                    console.log("Loaded global model");
                 }
             } catch (error) {
-                console.log('No global model found');
+                console.log("No global model found, starting fresh");
             }
         }
         
-        // Sync with Supabase
-        async function syncWithSupabase() {
+        // Sync model with Supabase
+        async function syncGlobalModel() {
             try {
+                // Get model artifacts
                 const artifacts = await game.model.save();
                 const modelData = btoa(JSON.stringify(artifacts));
                 
-                await game.supabase
+                // Update global stats
+                game.globalStats.contributors += 1;
+                
+                // Upsert to Supabase
+                const { error } = await supabase
                     .from('global_models')
                     .upsert({
                         name: 'rps_global',
                         model_data: modelData,
-                        total_games: game.userWins + game.userLosses + game.draws,
+                        training_cycles: game.globalStats.trainingCycles,
+                        contributors: game.globalStats.contributors,
+                        total_games: game.globalStats.totalGames,
                         updated_at: new Date().toISOString()
                     });
+                
+                if (!error) {
+                    console.log("Model synced with Supabase");
+                }
             } catch (error) {
-                console.error('Error syncing with Supabase:', error);
+                console.error("Error syncing model:", error);
             }
         }
         
+        // Update global stats display
+        function updateGlobalStats() {
+            document.getElementById('global-cycles').textContent = game.globalStats.trainingCycles;
+            document.getElementById('contributors').textContent = game.globalStats.contributors;
+            document.getElementById('global-games').textContent = game.globalStats.totalGames;
+        }
+        
         // Start the game
-        window.onload = init;
+        window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
