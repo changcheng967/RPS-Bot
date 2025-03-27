@@ -1,35 +1,53 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const cors = require('cors');
 const path = require('path');
 const tf = require('@tensorflow/tfjs-node');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 
-// Middleware
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'https://rps-bot-1.onrender.com/' // Update with your Render frontend URL
-  ]
-}));
-app.use(express.static(path.join(__dirname, 'public')));
+// ============================================
+// Enhanced Configuration
+// ============================================
 
-// Database Models
+// Security Middleware
+app.use(helmet());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use('/api/', limiter);
+
+// Static Files with Cache Control
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
+
+// ============================================
+// Database Setup
+// ============================================
+
 const GlobalStatsSchema = new mongoose.Schema({
   totalGames: { type: Number, default: 0 },
   aiWins: { type: Number, default: 0 },
   humanWins: { type: Number, default: 0 },
   ties: { type: Number, default: 0 },
   activeUsers: { type: Number, default: 0 }
-});
-const GlobalStatsModel = mongoose.model('GlobalStats', GlobalStatsSchema);
+}, { timestamps: true });
 
 const UserSchema = new mongoose.Schema({
-  userId: String,
+  userId: { type: String, unique: true },
   modelData: Object,
   stats: {
     gamesPlayed: { type: Number, default: 0 },
@@ -40,52 +58,60 @@ const UserSchema = new mongoose.Schema({
   history: [{
     humanMove: String,
     aiMove: String,
-    outcome: String,
-    timestamp: { type: Date, default: Date.now }
-  }],
-  lastUpdated: { type: Date, default: Date.now }
-});
+    outcome: String
+  }]
+}, { timestamps: true });
+
+const GlobalStatsModel = mongoose.model('GlobalStats', GlobalStatsSchema);
 const UserModel = mongoose.model('User', UserSchema);
 
-// MongoDB Connection with Retry
+// ============================================
+// Database Connection
+// ============================================
+
 const connectWithRetry = async () => {
+  const options = {
+    serverSelectionTimeoutMS: 30000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: 5,
+    retryWrites: true,
+    retryReads: true
+  };
+
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 30000,
-      socketTimeoutMS: 45000,
-      maxPoolSize: 5
-    });
+    await mongoose.connect(process.env.MONGODB_URI, options);
     console.log('MongoDB connected successfully');
     await initializeCollections();
   } catch (err) {
-    console.error('MongoDB connection error, retrying in 5 seconds...', err);
+    console.error('MongoDB connection error:', err.message);
+    console.log('Retrying connection in 5 seconds...');
     setTimeout(connectWithRetry, 5000);
   }
 };
 
-// Collection Initialization
 async function initializeCollections() {
   try {
-    const db = mongoose.connection.db;
-    const collections = await db.listCollections().toArray();
+    const collections = await mongoose.connection.db.listCollections().toArray();
     const collectionNames = collections.map(c => c.name);
 
     if (!collectionNames.includes('globalstats')) {
-      await db.createCollection('globalstats');
       await GlobalStatsModel.create({});
-      console.log('Created globalstats collection');
+      console.log('Initialized globalstats collection');
     }
 
     if (!collectionNames.includes('users')) {
-      await db.createCollection('users');
-      console.log('Created users collection');
+      await UserModel.createCollection();
+      console.log('Initialized users collection');
     }
   } catch (err) {
-    console.error('Error initializing collections:', err);
+    console.error('Collection initialization error:', err.message);
   }
 }
 
+// ============================================
 // AI Model Management
+// ============================================
+
 async function createNewModel() {
   const model = tf.sequential();
   model.add(tf.layers.dense({
@@ -105,15 +131,20 @@ async function createNewModel() {
   return model;
 }
 
+// ============================================
 // API Endpoints
-app.post('/api/user', async (req, res) => {
+// ============================================
+
+app.post('/api/user', async (req, res, next) => {
   try {
     const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
     let user = await UserModel.findOne({ userId });
     
     if (!user) {
       const model = await createNewModel();
-      const modelData = await model.save(tf.io.withSaveHandler(async (artifacts) => artifacts));
+      const modelData = await model.save(tf.io.withSaveHandler(artifacts => artifacts));
       
       user = await UserModel.create({
         userId,
@@ -121,105 +152,135 @@ app.post('/api/user', async (req, res) => {
         stats: { gamesPlayed: 0, wins: 0, losses: 0, ties: 0 }
       });
       
-      await GlobalStatsModel.updateOne({}, { $inc: { activeUsers: 1 } });
+      await GlobalStatsModel.updateOne(
+        {}, 
+        { $inc: { activeUsers: 1 } },
+        { upsert: true }
+      );
     }
     
     res.json({
       userId: user.userId,
-      stats: user.stats,
-      modelData: user.modelData
+      stats: user.stats
     });
   } catch (err) {
-    console.error('Error in /api/user:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
-app.post('/api/move', async (req, res) => {
+app.post('/api/move', async (req, res, next) => {
   try {
     const { userId, humanMove, history } = req.body;
+    if (!userId || !humanMove) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
     const user = await UserModel.findOne({ userId });
     if (!user) return res.status(404).json({ error: 'User not found' });
     
     const model = await tf.loadLayersModel(tf.io.fromMemory(user.modelData));
-    const prediction = await predictNextMove(model, history);
+    const prediction = await predictNextMove(model, history || []);
     const aiMove = selectAIMove(prediction);
     
     res.json({
       aiMove,
-      prediction: Array.from(prediction),
+      prediction: Array.from(prediction.dataSync()),
       outcome: determineOutcome(humanMove, aiMove)
     });
+
+    tf.dispose(model);
   } catch (err) {
-    console.error('Error in /api/move:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
-app.post('/api/save', async (req, res) => {
+app.post('/api/save', async (req, res, next) => {
   try {
     const { userId, humanMove, aiMove, outcome, history } = req.body;
-    
+    if (!userId || !humanMove || !aiMove || !outcome) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
     const update = { 
       $inc: { 
         'stats.gamesPlayed': 1,
         [`stats.${outcome === 'ai' ? 'losses' : outcome === 'human' ? 'wins' : 'ties'}`]: 1
       },
-      $push: { history: { humanMove, aiMove, outcome } },
-      lastUpdated: new Date()
-    };
-    
-    await GlobalStatsModel.updateOne({}, {
-      $inc: {
-        totalGames: 1,
-        [outcome === 'ai' ? 'aiWins' : outcome === 'human' ? 'humanWins' : 'ties']: 1
+      $push: { 
+        history: { 
+          humanMove, 
+          aiMove, 
+          outcome 
+        } 
       }
-    });
-    
-    if (history.length >= 10) {
+    };
+
+    // Update global stats
+    await GlobalStatsModel.updateOne(
+      {},
+      { $inc: { 
+        totalGames: 1,
+        [outcome === 'ai' ? 'aiWins' : outcome === 'human' ? 'humanWins' : 'ties']: 1 
+      }},
+      { upsert: true }
+    );
+
+    // Retrain model if enough data
+    if (history && history.length >= 10) {
       const user = await UserModel.findOne({ userId });
       const model = await tf.loadLayersModel(tf.io.fromMemory(user.modelData));
       
       const { inputs, labels } = prepareTrainingData(history);
-      await model.fit(inputs, labels, { epochs: 10, batchSize: 8 });
+      await model.fit(inputs, labels, { 
+        epochs: 10, 
+        batchSize: 8,
+        verbose: 0
+      });
       
-      const updatedModelData = await model.save(tf.io.withSaveHandler(async (artifacts) => artifacts));
+      const updatedModelData = await model.save(tf.io.withSaveHandler(artifacts => artifacts));
       update.modelData = updatedModelData;
       
-      tf.dispose([inputs, labels]);
+      tf.dispose([inputs, labels, model]);
     }
     
     await UserModel.updateOne({ userId }, update);
     res.json({ success: true });
   } catch (err) {
-    console.error('Error in /api/save:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
-app.get('/api/global', async (req, res) => {
+app.get('/api/global', async (req, res, next) => {
   try {
-    const stats = await GlobalStatsModel.findOne();
-    res.json(stats || {});
+    const stats = await GlobalStatsModel.findOne({});
+    res.json(stats || {
+      totalGames: 0,
+      aiWins: 0,
+      humanWins: 0,
+      ties: 0,
+      activeUsers: 0
+    });
   } catch (err) {
-    console.error('Error in /api/global:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
-// Health Check
-app.get('/health', (req, res) => {
-  const status = {
-    status: 'up',
-    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    timestamp: new Date()
-  };
-  res.status(status.db === 'connected' ? 200 : 503).json(status);
+// ============================================
+// Frontend Handling
+// ============================================
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ============================================
 // Helper Functions
+// ============================================
+
 async function predictNextMove(model, history) {
-  if (history.length < 3) return tf.tensor1d([0.33, 0.33, 0.33]);
+  if (!history || history.length < 3) {
+    return tf.tensor1d([0.33, 0.33, 0.33]);
+  }
   
   const input = prepareInputFromHistory(history.slice(-3));
   return tf.tidy(() => model.predict(tf.tensor2d([input])).squeeze());
@@ -258,7 +319,10 @@ function prepareTrainingData(history) {
 }
 
 function selectAIMove(prediction) {
-  const predictionArray = Array.isArray(prediction) ? prediction : Array.from(prediction.dataSync());
+  const predictionArray = Array.isArray(prediction) ? 
+    prediction : 
+    Array.from(prediction.dataSync());
+  
   const moves = ['rock', 'paper', 'scissors'];
   const predictedIndex = predictionArray.indexOf(Math.max(...predictionArray));
   const counters = { rock: 'paper', paper: 'scissors', scissors: 'rock' };
@@ -267,25 +331,45 @@ function selectAIMove(prediction) {
 
 function determineOutcome(human, ai) {
   if (human === ai) return 'tie';
-  if ((human === 'rock' && ai === 'scissors') ||
-      (human === 'paper' && ai === 'rock') ||
-      (human === 'scissors' && ai === 'paper')) return 'human';
-  return 'ai';
+  const winConditions = {
+    rock: 'scissors',
+    paper: 'rock',
+    scissors: 'paper'
+  };
+  return winConditions[human] === ai ? 'human' : 'ai';
 }
 
+// ============================================
 // Error Handling
+// ============================================
+
+app.use((err, req, res, next) => {
+  console.error('Error:', err.stack);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
 process.on('unhandledRejection', (err) => {
-  console.error('Unhandled rejection:', err);
+  console.error('Unhandled rejection:', err.stack);
 });
 
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err);
+  console.error('Uncaught exception:', err.stack);
+  process.exit(1);
 });
 
-// Start Server
+// ============================================
+// Server Startup
+// ============================================
+
 const PORT = process.env.PORT || 10000;
+
 connectWithRetry().then(() => {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Database: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}`);
   });
 });
