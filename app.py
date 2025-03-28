@@ -1,128 +1,94 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory
-from flask_cors import CORS
 import random
-from collections import defaultdict
-import pickle
+import json
+import numpy as np
+import tensorflow as tf
+from flask import Flask, render_template, request, jsonify
 
-app = Flask(__name__, static_folder='templates')
-CORS(app)
+app = Flask(__name__)
 
-# Initialize game data
-DATA_FILE = '/tmp/rps_data.pkl'
+MODEL_PATH = "rps_model.h5"
+DATA_PATH = "game_data.json"
+TRAIN_INTERVAL = 10
 
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, 'rb') as f:
-        game_data = pickle.load(f)
+# Initialize or load game history
+def load_game_data():
+    if os.path.exists(DATA_PATH):
+        with open(DATA_PATH, "r") as f:
+            return json.load(f)
+    return {"history": [], "wins": 0, "losses": 0, "ties": 0, "games_played": 0}
+
+game_data = load_game_data()
+
+def save_game_data():
+    with open(DATA_PATH, "w") as f:
+        json.dump(game_data, f)
+
+# Load or create model
+def create_lightweight_model():
+    model = tf.keras.Sequential([
+        tf.keras.layers.Dense(16, activation='relu', input_shape=(3,)),
+        tf.keras.layers.Dense(16, activation='relu'),
+        tf.keras.layers.Dense(3, activation='softmax')  # Output for rock, paper, scissors
+    ])
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+if os.path.exists(MODEL_PATH):
+    model = tf.keras.models.load_model(MODEL_PATH)
 else:
-    game_data = {
-        'games_played': 0,
-        'move_history': [],
-        'outcome_history': [],
-        'transition_counts': defaultdict(lambda: defaultdict(int)),
-        'move_probabilities': {'rock': 0.34, 'paper': 0.33, 'scissors': 0.33}
-    }
+    model = create_lightweight_model()
 
-def update_model():
-    """Train the model based on collected data"""
-    if len(game_data['move_history']) < 5:
-        return
+def get_ai_move(player_move):
+    if len(game_data["history"]) < 10:
+        return random.choice(["rock", "paper", "scissors"])
 
-    transition_counts = game_data['transition_counts']
-    last_move = None
-    
-    for move in game_data['move_history']:
-        if last_move is not None:
-            transition_counts[last_move][move] += 1
-        last_move = move
-    
-    transition_probs = {}
-    for from_move in ['rock', 'paper', 'scissors']:
-        total = sum(transition_counts[from_move].values())
-        if total > 0:
-            transition_probs[from_move] = {
-                to_move: count/total 
-                for to_move, count in transition_counts[from_move].items()
-            }
-        else:
-            transition_probs[from_move] = {
-                'rock': 0.33,
-                'paper': 0.33,
-                'scissors': 0.33
-            }
-    
-    if game_data['move_history']:
-        last_opponent_move = game_data['move_history'][-1]
-        next_move_probs = transition_probs.get(last_opponent_move, {
-            'rock': 0.33,
-            'paper': 0.33,
-            'scissors': 0.33
-        })
-        
-        expected_opponent_move = max(next_move_probs.items(), key=lambda x: x[1])[0]
-        
-        if expected_opponent_move == 'rock':
-            game_data['move_probabilities'] = {'rock': 0.1, 'paper': 0.6, 'scissors': 0.3}
-        elif expected_opponent_move == 'paper':
-            game_data['move_probabilities'] = {'rock': 0.3, 'paper': 0.1, 'scissors': 0.6}
-        else:
-            game_data['move_probabilities'] = {'rock': 0.6, 'paper': 0.3, 'scissors': 0.1}
-    
-    with open(DATA_FILE, 'wb') as f:
-        pickle.dump(game_data, f)
-
-def determine_winner(user_choice, bot_choice):
-    if user_choice == bot_choice:
-        return 'draw'
-    elif (user_choice == 'rock' and bot_choice == 'scissors') or \
-         (user_choice == 'scissors' and bot_choice == 'paper') or \
-         (user_choice == 'paper' and bot_choice == 'rock'):
-        return 'user'
-    else:
-        return 'bot'
+    moves = {"rock": 0, "paper": 1, "scissors": 2}
+    x_input = np.zeros((1, 3))
+    x_input[0, moves[player_move]] = 1
+    prediction = model.predict(x_input)[0]
+    counter_moves = {0: "paper", 1: "scissors", 2: "rock"}
+    return counter_moves[np.argmax(prediction)]
 
 @app.route('/')
-def serve_index():
-    return send_from_directory('templates', 'index.html')
+def index():
+    return render_template('index.html', stats=game_data)
 
-@app.route('/api/play', methods=['POST'])
+@app.route('/play', methods=['POST'])
 def play():
-    user_choice = request.json['choice']
+    player_move = request.json['move']
+    ai_move = get_ai_move(player_move)
     
-    choices = ['rock', 'paper', 'scissors']
-    probs = [game_data['move_probabilities'][c] for c in choices]
-    bot_choice = random.choices(choices, weights=probs, k=1)[0]
+    outcomes = {("rock", "scissors"): "win", ("scissors", "paper"): "win", ("paper", "rock"): "win"}
+    outcome = "tie" if player_move == ai_move else "win" if (player_move, ai_move) in outcomes else "loss"
     
-    outcome = determine_winner(user_choice, bot_choice)
+    game_data["history"].append({"player": player_move, "ai": ai_move})
+    game_data["games_played"] += 1
+    if outcome == "win":
+        game_data["wins"] += 1
+    elif outcome == "loss":
+        game_data["losses"] += 1
+    else:
+        game_data["ties"] += 1
     
-    game_data['games_played'] += 1
-    game_data['move_history'].append(user_choice)
-    game_data['outcome_history'].append(outcome)
+    if len(game_data["history"]) % TRAIN_INTERVAL == 0:
+        train_model()
     
-    if game_data['games_played'] % 10 == 0:
-        update_model()
-    
-    return jsonify({
-        'bot_choice': bot_choice,
-        'outcome': outcome,
-        'games_played': game_data['games_played'],
-        'move_probs': game_data['move_probabilities'],
-        'user_wins': game_data['outcome_history'].count('user'),
-        'bot_wins': game_data['outcome_history'].count('bot'),
-        'draws': game_data['outcome_history'].count('draw')
-    })
+    save_game_data()
+    return jsonify({"player_move": player_move, "ai_move": ai_move, "outcome": outcome, "stats": game_data})
 
-@app.route('/api/stats')
-def stats():
-    return jsonify({
-        'games_played': game_data['games_played'],
-        'user_wins': game_data['outcome_history'].count('user'),
-        'bot_wins': game_data['outcome_history'].count('bot'),
-        'draws': game_data['outcome_history'].count('draw'),
-        'move_probs': game_data['move_probabilities'],
-        'last_10_moves': game_data['move_history'][-10:] if game_data['move_history'] else [],
-        'win_rate': game_data['outcome_history'].count('bot') / game_data['games_played'] if game_data['games_played'] > 0 else 0
-    })
+def train_model():
+    moves = {"rock": 0, "paper": 1, "scissors": 2}
+    X, y = [], []
+    for game in game_data["history"]:
+        X.append([1 if game["player"] == key else 0 for key in moves])
+        y.append([1 if game["ai"] == key else 0 for key in moves])
+    
+    X, y = np.array(X), np.array(y)
+    
+    # Train with a small batch size
+    model.fit(X, y, epochs=5, batch_size=2, verbose=0)
+    model.save(MODEL_PATH)
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True, host="0.0.0.0", port=5000)
