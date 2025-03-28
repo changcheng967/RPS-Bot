@@ -1,4 +1,4 @@
 Flask
 tensorflow
-gunicorn=
+gunicorn
 numpy
