@@ -1,3 +1,5 @@
-Flask
-tensorflow
-numpy
+tensorflow==2.15.0  # Official version with CUDA 12.5 support
+numpy==1.24.3       # Matching version
+flask==3.0.2        # Updated web framework
+h5py==3.10.0        # Model saving
+pyopencl==2023.1.1  # Latest OpenCL with CUDA 12.5 support
